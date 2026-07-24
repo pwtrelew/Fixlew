@@ -315,13 +315,13 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
         // Setup PWA - Service Worker & Manifest
         const manifest = {
-            name: "Fixlew PWA", short_name: "Fixlew", start_url: ".", display: "standalone",
+            name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
             background_color: "#f3f4f6", theme_color: "#2563EB",
             icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M227.32,73.25A16,16,0,0,0,216,64H160V48a16,16,0,0,0-16-16H112A16,16,0,0,0,96,48V64H40a16,16,0,0,0-11.32,9.25c-3.14,7.24-1.39,15.65,4.41,21.06L64,123.08v52.79A16.13,16.13,0,0,0,79.8,192h96.4A16.13,16.13,0,0,0,192,175.87V123.08l30.91-28.77C228.71,88.9,230.46,80.49,227.32,73.25Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
         };
@@ -332,10 +332,18 @@
         }
 
         // Environment variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tech-repair-app-local';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+        const appId = window.__app_id || 'fixlew-produccion';
+        
+        // CONFIGURACIÓN REAL DE FIREBASE (Proporcionada por el usuario)
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
+            authDomain: "fixlew.firebaseapp.com",
+            projectId: "fixlew",
+            storageBucket: "fixlew.firebasestorage.app",
+            messagingSenderId: "545562287611",
+            appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
+        };
+        
         let db, auth, currentUserId;
         let tickets = [];
         let currentTab = 'activos';
@@ -348,26 +356,72 @@
         const listTitle = document.getElementById('list-title');
         const searchInput = document.getElementById('search-input');
 
+        // Determinar configuración de Firebase a usar con seguridad
+        const isPlaceholder = myFirebaseConfig.apiKey === "TU_API_KEY";
+        let activeConfig = null;
+        
+        if (!isPlaceholder) {
+            activeConfig = myFirebaseConfig;
+        } else if (typeof window !== 'undefined' && window.__firebase_config && window.__firebase_config.projectId) {
+            activeConfig = window.__firebase_config;
+        }
+
         // Inicialización
-        if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            authenticate();
+        if (activeConfig) {
+            try {
+                const app = initializeApp(activeConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                authenticate();
+            } catch (err) {
+                console.error("Firebase init error:", err);
+                showMissingConfigError();
+            }
         } else {
-            showToast("Error: Configuración de Firebase no encontrada", "error");
+            showMissingConfigError();
+        }
+
+        function showMissingConfigError() {
+            document.getElementById('user-status').textContent = "Esperando claves...";
+            document.getElementById('tickets-container').innerHTML = `
+                <div class="text-center py-10 text-red-500 bg-red-50 rounded-xl border border-red-100 m-4 shadow-sm">
+                    <i class="ph ph-warning-circle text-4xl mx-auto mb-2"></i>
+                    <p class="font-bold text-lg">Firebase desconectado</p>
+                    <p class="text-sm text-gray-700 mt-2 px-4">Ve a tu código fuente y pega tu configuración de Firebase en la variable <b>myFirebaseConfig</b> para poder empezar a guardar tus trabajos.</p>
+                </div>`;
+            
+            // Ocultamos el spinner inicial si falla la carga
+            const spinner = document.querySelector('#tickets-container .animate-spin');
+            if (spinner) spinner.parentElement.style.display = 'none';
         }
 
         async function authenticate() {
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Al estar usando tu propio Firebase, ignoramos cualquier token externo
+                // y usamos directamente la autenticación anónima que habilitaste en tu consola.
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Auth error:", error);
-                document.getElementById('user-status').textContent = "Error de conexión";
+                
+                if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed') {
+                    document.getElementById('user-status').textContent = "Requiere habilitar Anónimo";
+                    document.getElementById('tickets-container').innerHTML = `
+                        <div class="text-center py-10 text-orange-600 bg-orange-50 rounded-xl border border-orange-200 m-4 shadow-sm">
+                            <i class="ph ph-shield-warning text-4xl mx-auto mb-2"></i>
+                            <p class="font-bold text-lg">Autenticación Anónima apagada</p>
+                            <p class="text-sm text-gray-800 mt-2 px-4">
+                                Debes ir a tu Consola de Firebase:<br><br>
+                                1. Entra a <b>Authentication</b><br>
+                                2. Ve a <b>Sign-in method</b><br>
+                                3. Habilita <b>Anónimo</b> y Guarda.
+                            </p>
+                        </div>`;
+                } else {
+                    document.getElementById('user-status').textContent = "Error de conexión";
+                }
+                
+                const spinner = document.querySelector('#tickets-container .animate-spin');
+                if (spinner) spinner.parentElement.style.display = 'none';
             }
         }
 
