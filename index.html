@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fixlew - Control de Taller</title>
     <meta name="theme-color" content="#2563EB">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M176,16H80A16,16,0,0,0,64,32V224a16,16,0,0,0,16,16h96a16,16,0,0,0,16-16V32A16,16,0,0,0,176,16ZM160,224H96V192h64Zm0-48H96V48h64ZM235.31,140.69a16,16,0,0,0-22.62,0L184,169.37V104a8,8,0,0,0-8-8H144a8,8,0,0,0-8,8v65.37l-28.69-28.68a16,16,0,0,0-22.62,22.62l48,48a16,16,0,0,0,22.62,0l48-48A16,16,0,0,0,235.31,140.69Z' fill='%232563EB'/%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M176,16H80A16,16,0,0,0,64,32V224a16,16,0,0,0,16,16h96a16,16,0,0,0,16-16V32A16,16,0,0,0,176,16ZM160,224H96V192h64Zm0-48H96V48h64Z' fill='%232563EB'/%3E%3Ccircle cx='128' cy='208' r='12' fill='%232563EB'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Iconos Phosphor -->
@@ -119,7 +119,7 @@
                         <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($) - Opcional</label>
-                            <input type="number" step="0.01" id="t-advance" placeholder="Ej: 5000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            <input type="text" inputmode="decimal" id="t-advance" placeholder="Ej: 5000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                         </div>
                     </div>
 
@@ -252,16 +252,16 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo Pagado ($)</label>
-                                <input type="number" step="0.01" id="mdl-advance" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 outline-none text-sm text-gray-600 font-semibold" readonly>
+                                <input type="text" inputmode="decimal" id="mdl-advance" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 outline-none text-sm text-gray-600 font-semibold" readonly>
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Costo Repuestos ($)</label>
-                                <input type="number" step="0.01" id="mdl-parts" placeholder="Ej: 8000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm">
+                                <input type="text" inputmode="decimal" id="mdl-parts" placeholder="Ej: 8000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm">
                             </div>
                             <div class="col-span-2">
                                 <label class="block text-xs font-bold text-green-700 mb-1">Precio Total a Cobrar al Cliente ($)</label>
                                 <div class="flex gap-2 items-center">
-                                    <input type="number" step="0.01" id="mdl-price" placeholder="Ej: 25000" class="w-full px-3 py-2 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold text-gray-800">
+                                    <input type="text" inputmode="decimal" id="mdl-price" placeholder="Ej: 25000" class="w-full px-3 py-2 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold text-gray-800">
                                 </div>
                                 <p class="text-xs text-gray-500 mt-1" id="mdl-balance-hint">Resta abonar: $0</p>
                             </div>
@@ -315,15 +315,15 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, enableIndexedDbPersistence, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Setup PWA - Service Worker & Manifest
         const manifest = {
             name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
             background_color: "#f3f4f6", theme_color: "#2563EB",
-            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M176,16H80A16,16,0,0,0,64,32V224a16,16,0,0,0,16,16h96a16,16,0,0,0,16-16V32A16,16,0,0,0,176,16ZM160,224H96V192h64Zm0-48H96V48h64ZM235.31,140.69a16,16,0,0,0-22.62,0L184,169.37V104a8,8,0,0,0-8-8H144a8,8,0,0,0-8,8v65.37l-28.69-28.68a16,16,0,0,0-22.62,22.62l48,48a16,16,0,0,0,22.62,0l48-48A16,16,0,0,0,235.31,140.69Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
+            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM128,192a12,12,0,1,1,12-12A12,12,0,0,1,128,192Zm56-112H72a8,8,0,0,1,0-16H184a8,8,0,0,1,0,16ZM228.69,72.68l-40,96a8,8,0,1,1-14.78-6.16l25.82-62L162.08,90a8,8,0,0,1,9.84-12.87Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
         };
         document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
         if ('serviceWorker' in navigator) {
@@ -331,10 +331,8 @@
             navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log('SW Error:', err));
         }
 
-        // Environment variables
         const appId = window.__app_id || 'fixlew-produccion';
         
-        // CONFIGURACIÓN REAL DE FIREBASE (Proporcionada por el usuario)
         const myFirebaseConfig = {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
             authDomain: "fixlew.firebaseapp.com",
@@ -350,13 +348,6 @@
         let currentEditingId = null;
         let unsubscribeTickets = null;
 
-        // Elements
-        const ticketsContainer = document.getElementById('tickets-container');
-        const activeCount = document.getElementById('active-count');
-        const listTitle = document.getElementById('list-title');
-        const searchInput = document.getElementById('search-input');
-
-        // Determinar configuración de Firebase a usar con seguridad
         const isPlaceholder = myFirebaseConfig.apiKey === "TU_API_KEY";
         let activeConfig = null;
         
@@ -366,12 +357,22 @@
             activeConfig = window.__firebase_config;
         }
 
-        // Inicialización
+        const ticketsContainer = document.getElementById('tickets-container');
+        const activeCount = document.getElementById('active-count');
+        const listTitle = document.getElementById('list-title');
+        const searchInput = document.getElementById('search-input');
+
         if (activeConfig) {
             try {
                 const app = initializeApp(activeConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                
+                // MAGIA OFFLINE: Habilitamos caché local para evitar congelamientos sin red
+                enableIndexedDbPersistence(db).catch((err) => {
+                    console.warn("Modo offline limitado por navegador:", err.code);
+                });
+
                 authenticate();
             } catch (err) {
                 console.error("Firebase init error:", err);
@@ -387,39 +388,26 @@
                 <div class="text-center py-10 text-red-500 bg-red-50 rounded-xl border border-red-100 m-4 shadow-sm">
                     <i class="ph ph-warning-circle text-4xl mx-auto mb-2"></i>
                     <p class="font-bold text-lg">Firebase desconectado</p>
-                    <p class="text-sm text-gray-700 mt-2 px-4">Ve a tu código fuente y pega tu configuración de Firebase en la variable <b>myFirebaseConfig</b> para poder empezar a guardar tus trabajos.</p>
+                    <p class="text-sm text-gray-700 mt-2 px-4">Debes poner tu configuración de Firebase.</p>
                 </div>`;
-            
-            // Ocultamos el spinner inicial si falla la carga
             const spinner = document.querySelector('#tickets-container .animate-spin');
             if (spinner) spinner.parentElement.style.display = 'none';
         }
 
         async function authenticate() {
             try {
-                // Al estar usando tu propio Firebase, ignoramos cualquier token externo
-                // y usamos directamente la autenticación anónima que habilitaste en tu consola.
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("Auth error:", error);
-                
-                if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed') {
-                    document.getElementById('user-status').textContent = "Requiere habilitar Anónimo";
-                    document.getElementById('tickets-container').innerHTML = `
-                        <div class="text-center py-10 text-orange-600 bg-orange-50 rounded-xl border border-orange-200 m-4 shadow-sm">
-                            <i class="ph ph-shield-warning text-4xl mx-auto mb-2"></i>
-                            <p class="font-bold text-lg">Autenticación Anónima apagada</p>
-                            <p class="text-sm text-gray-800 mt-2 px-4">
-                                Debes ir a tu Consola de Firebase:<br><br>
-                                1. Entra a <b>Authentication</b><br>
-                                2. Ve a <b>Sign-in method</b><br>
-                                3. Habilita <b>Anónimo</b> y Guarda.
-                            </p>
-                        </div>`;
-                } else {
-                    document.getElementById('user-status').textContent = "Error de conexión";
-                }
-                
+                document.getElementById('user-status').textContent = "Error de Auth";
+                document.getElementById('tickets-container').innerHTML = `
+                    <div class="text-center py-10 text-orange-600 bg-orange-50 rounded-xl border border-orange-200 m-4 shadow-sm">
+                        <i class="ph ph-shield-warning text-4xl mx-auto mb-2"></i>
+                        <p class="font-bold text-lg">Autenticación Anónima apagada</p>
+                        <p class="text-sm text-gray-800 mt-2 px-4">
+                            Entra a Firebase -> Authentication -> Sign-in method -> Habilita "Anónimo".
+                        </p>
+                    </div>`;
                 const spinner = document.querySelector('#tickets-container .animate-spin');
                 if (spinner) spinner.parentElement.style.display = 'none';
             }
@@ -437,10 +425,7 @@
 
         function loadTickets() {
             if (!currentUserId) return;
-            
             const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-            
-            // Usamos un query simple sin orderBy para evitar necesidad de índices, ordenamos en memoria.
             if(unsubscribeTickets) unsubscribeTickets();
             
             unsubscribeTickets = onSnapshot(ticketsRef, (snapshot) => {
@@ -448,8 +433,6 @@
                 snapshot.forEach((doc) => {
                     tickets.push({ id: doc.id, ...doc.data() });
                 });
-                
-                // Ordenar en memoria: Más recientes primero (mayor ID de servicio)
                 tickets.sort((a, b) => b.serviceNumber - a.serviceNumber);
                 
                 if (currentTab === 'resumen') {
@@ -464,20 +447,27 @@
         }
 
         function getNextServiceNumber() {
-            if (tickets.length === 0) return 1;
-            const maxNumber = Math.max(...tickets.map(t => parseInt(t.serviceNumber) || 0));
+            if (!tickets || tickets.length === 0) return 1;
+            let maxNumber = 0;
+            tickets.forEach(t => {
+                const num = parseInt(t.serviceNumber) || 0;
+                if(num > maxNumber) maxNumber = num;
+            });
             return maxNumber + 1;
+        }
+
+        function parseMoneyInput(val) {
+            if(!val) return '';
+            let str = val.toString().trim();
+            str = str.replace(/\./g, '').replace(',', '.');
+            return str;
         }
 
         function renderTickets() {
             const searchTerm = searchInput.value.toLowerCase();
-            
             let filteredTickets = tickets.filter(t => {
-                // Filtrar por tab activo
                 if (currentTab === 'activos' && t.status === 'Entregado') return false;
                 if (currentTab === 'historial' && t.status !== 'Entregado') return false;
-                
-                // Filtrar por busqueda
                 if (searchTerm) {
                     return (
                         (t.clientName || '').toLowerCase().includes(searchTerm) ||
@@ -488,7 +478,6 @@
                 return true;
             });
 
-            // Actualizar conteo
             if (currentTab === 'activos') {
                 activeCount.textContent = filteredTickets.length;
                 activeCount.classList.remove('hidden');
@@ -512,8 +501,6 @@
             filteredTickets.forEach(ticket => {
                 const el = document.createElement('div');
                 const numFmt = ticket.serviceNumber.toString().padStart(3, '0');
-                
-                // Determinar clase de estado
                 let statusClass = '';
                 let statusIcon = '';
                 switch(ticket.status) {
@@ -546,16 +533,11 @@
             });
         }
 
-        // Tabs
         window.switchTab = function(tab) {
             currentTab = tab;
-            
-            // Actualizar botones Nav
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('text-blue-600');
                 btn.classList.add('text-gray-400');
-                
-                // Reset icon style for actives/historial
                 const icon = btn.querySelector('i');
                 if(icon && btn.id !== 'tab-nuevo') {
                     icon.classList.remove('ph-fill');
@@ -572,7 +554,6 @@
                 activeIcon.classList.add('ph-fill');
             }
 
-            // Mostrar pantallas
             document.getElementById('screen-list').classList.add('hidden');
             document.getElementById('screen-new').classList.add('hidden');
             document.getElementById('screen-resumen').classList.add('hidden');
@@ -590,7 +571,6 @@
             }
         };
 
-        // Date init for stats
         const today = new Date();
         document.getElementById('stats-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
         document.getElementById('stats-month').addEventListener('change', () => { if(currentTab === 'resumen') renderStats(); });
@@ -640,7 +620,6 @@
             document.getElementById('stat-profit').textContent = `$${(totalRevenue - totalCosts).toLocaleString('es-AR')}`;
         }
 
-        // Buscador toggler
         document.getElementById('btn-search').addEventListener('click', () => {
             if(currentTab === 'nuevo') switchTab('activos');
             const sb = document.getElementById('search-bar');
@@ -652,48 +631,58 @@
                 renderTickets();
             }
         });
-        
         searchInput.addEventListener('input', renderTickets);
 
         document.getElementById('form-new-ticket').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if(!currentUserId) return showToast("Error: No autenticado", "error");
-
             const btn = e.target.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin text-lg"></i> Guardando...`;
-
-            const newTicket = {
-                serviceNumber: getNextServiceNumber(),
-                clientName: document.getElementById('t-clientName').value.trim(),
-                clientPhone: document.getElementById('t-clientPhone').value.trim(),
-                deviceCategory: document.getElementById('t-category').value,
-                deviceBrand: document.getElementById('t-brand').value.trim(),
-                deviceModel: document.getElementById('t-model').value.trim(),
-                issueDescription: document.getElementById('t-issue').value.trim(),
-                accessories: document.getElementById('t-accessories').value.trim() || '',
-                advancePayment: document.getElementById('t-advance').value.trim() || '',
-                status: 'Pendiente',
-                dateIntake: new Date().toISOString(),
-                serviceDetails: '',
-                price: '',
-                partsCost: ''
-            };
+            const originalHtml = btn.innerHTML;
 
             try {
+                if(!currentUserId) throw new Error("No estás conectado a Firebase");
+
+                btn.disabled = true;
+                btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin text-lg"></i> Guardando...`;
+
+                const newTicket = {
+                    serviceNumber: getNextServiceNumber(),
+                    clientName: document.getElementById('t-clientName').value.trim(),
+                    clientPhone: document.getElementById('t-clientPhone').value.trim(),
+                    deviceCategory: document.getElementById('t-category').value,
+                    deviceBrand: document.getElementById('t-brand').value.trim(),
+                    deviceModel: document.getElementById('t-model').value.trim(),
+                    issueDescription: document.getElementById('t-issue').value.trim(),
+                    accessories: document.getElementById('t-accessories').value.trim() || '',
+                    advancePayment: parseMoneyInput(document.getElementById('t-advance').value),
+                    status: 'Pendiente',
+                    dateIntake: new Date().toISOString(),
+                    serviceDetails: '',
+                    price: '',
+                    partsCost: ''
+                };
+
                 const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-                await addDoc(ticketsRef, newTicket);
                 
-                showToast(`Ingreso guardado exitosamente: #${newTicket.serviceNumber.toString().padStart(3,'0')}`);
+                // SISTEMA ANTI-CONGELAMIENTO: Espera maximo 3 segundos al servidor.
+                const savePromise = addDoc(ticketsRef, newTicket);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_OFFLINE")), 3000));
+                
+                try {
+                    await Promise.race([savePromise, timeoutPromise]);
+                } catch (err) {
+                    if (err.message !== "TIMEOUT_OFFLINE") throw err; // Si es un error real, frenar. Si es solo timeout (mala señal), ignorarlo y continuar para destrabar la UI.
+                }
+                
+                showToast(`Ingreso guardado: #${newTicket.serviceNumber.toString().padStart(3,'0')}`);
                 e.target.reset();
                 switchTab('activos');
                 
             } catch (error) {
-                console.error("Error al guardar:", error);
-                showToast("Error al guardar el ingreso", "error");
+                console.error("Error crítico al guardar:", error);
+                showToast("Error al guardar", "error");
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<i class="ph ph-plus-circle text-lg"></i> Registrar Ingreso`;
+                btn.innerHTML = originalHtml;
             }
         });
 
@@ -713,7 +702,6 @@
             document.getElementById('mdl-issue').textContent = ticket.issueDescription;
             document.getElementById('mdl-accessories').textContent = ticket.accessories || 'Ninguno';
             
-            // Set values for editing
             document.getElementById('mdl-status').value = ticket.status;
             document.getElementById('mdl-status').className = `flex-1 font-semibold text-sm px-3 py-2 rounded-lg outline-none appearance-none cursor-pointer ${getStatusClass(ticket.status)}`;
             
@@ -724,12 +712,10 @@
             
             updateBalanceHint();
 
-            // Update Status Colors on change
             document.getElementById('mdl-status').onchange = (e) => {
                 e.target.className = `flex-1 font-semibold text-sm px-3 py-2 rounded-lg outline-none appearance-none cursor-pointer ${getStatusClass(e.target.value)}`;
             };
 
-            // Setup WhatsApp button
             let msj = `Hola ${ticket.clientName.split(' ')[0]}, te escribo de Fixlew. `;
             if(ticket.status === 'Listo') {
                 msj += `Tu equipo (${ticket.deviceBrand} ${ticket.deviceModel}) ya está listo para retirar.`;
@@ -747,25 +733,27 @@
             const waUrl = `https://wa.me/${ticket.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msj)}`;
             document.getElementById('btn-whatsapp').href = waUrl;
 
-            // Mostrar Modal
             document.getElementById('modal-detail').classList.remove('hidden');
             document.getElementById('modal-detail').classList.add('flex');
         };
 
         function updateBalanceHint() {
-            const adv = parseFloat(document.getElementById('mdl-advance').value) || 0;
-            const price = parseFloat(document.getElementById('mdl-price').value) || 0;
+            const rawAdv = document.getElementById('mdl-advance').value.toString().replace(/\./g, '').replace(',', '.');
+            const rawPrice = document.getElementById('mdl-price').value.toString().replace(/\./g, '').replace(',', '.');
+            
+            const adv = parseFloat(rawAdv) || 0;
+            const price = parseFloat(rawPrice) || 0;
             const hint = document.getElementById('mdl-balance-hint');
+            
             if(price > 0) {
                 const rest = price - adv;
-                hint.textContent = rest > 0 ? `Resta abonar al retirar: $${rest}` : `Totalmente abonado con anticipo.`;
+                hint.textContent = rest > 0 ? `Resta abonar al retirar: $${rest.toLocaleString('es-AR')}` : `Totalmente abonado.`;
                 hint.className = rest > 0 ? "text-xs font-bold text-red-500 mt-1" : "text-xs font-bold text-green-600 mt-1";
             } else {
                 hint.textContent = "Defina el precio total para ver saldo.";
                 hint.className = "text-xs text-gray-500 mt-1";
             }
         }
-        
         document.getElementById('mdl-price').addEventListener('input', updateBalanceHint);
 
         window.closeModal = function() {
@@ -779,15 +767,16 @@
 
             const btn = document.querySelector('#modal-detail button:last-child');
             const originalText = btn.innerHTML;
-            btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin"></i> Guardando...`;
-            btn.disabled = true;
-
-            const newStatus = document.getElementById('mdl-status').value;
-            const newDetails = document.getElementById('mdl-service-details').value;
-            const newPrice = document.getElementById('mdl-price').value;
-            const newPartsCost = document.getElementById('mdl-parts').value;
-
+            
             try {
+                btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin"></i> Guardando...`;
+                btn.disabled = true;
+
+                const newStatus = document.getElementById('mdl-status').value;
+                const newDetails = document.getElementById('mdl-service-details').value;
+                const newPrice = parseMoneyInput(document.getElementById('mdl-price').value);
+                const newPartsCost = parseMoneyInput(document.getElementById('mdl-parts').value);
+
                 const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
                 const updateData = {
                     status: newStatus,
@@ -796,18 +785,26 @@
                     partsCost: newPartsCost
                 };
                 
-                // Si se marca como entregado y no tenía fecha de entrega, ponerla
                 if(newStatus === 'Entregado') {
                     const ticket = tickets.find(t => t.id === currentEditingId);
                     if(!ticket.dateDelivery) updateData.dateDelivery = new Date().toISOString();
                 }
 
-                await updateDoc(docRef, updateData);
+                // SISTEMA ANTI-CONGELAMIENTO
+                const updatePromise = updateDoc(docRef, updateData);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_OFFLINE")), 3000));
+                
+                try {
+                    await Promise.race([updatePromise, timeoutPromise]);
+                } catch (err) {
+                    if (err.message !== "TIMEOUT_OFFLINE") throw err;
+                }
+
                 showToast("Cambios guardados");
                 closeModal();
             } catch(e) {
-                console.error(e);
-                showToast("Error al guardar cambios", "error");
+                console.error("Error al guardar cambios:", e);
+                showToast("Error al guardar", "error");
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -816,11 +813,20 @@
 
         window.deleteCurrentTicket = async function() {
             if(!currentUserId || !currentEditingId) return;
-            // Simple confirmation modal instead of alert/confirm
-            if(confirm("¿Estás seguro de eliminar este registro de servicio?")) {
+            if(confirm("¿Estás seguro de eliminar este registro?")) {
                 try {
                     const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
-                    await deleteDoc(docRef);
+                    
+                    // SISTEMA ANTI-CONGELAMIENTO
+                    const deletePromise = deleteDoc(docRef);
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_OFFLINE")), 3000));
+                    
+                    try {
+                        await Promise.race([deletePromise, timeoutPromise]);
+                    } catch (err) {
+                        if (err.message !== "TIMEOUT_OFFLINE") throw err;
+                    }
+                    
                     showToast("Registro eliminado");
                     closeModal();
                 } catch(e) {
@@ -829,11 +835,9 @@
             }
         }
         
-        // Función para etiqueta (impresión simple)
         window.printLabel = function() {
             if(!currentEditingId) return;
             const ticket = tickets.find(t => t.id === currentEditingId);
-            
             document.getElementById('lbl-number').textContent = `#${ticket.serviceNumber.toString().padStart(3, '0')}`;
             document.getElementById('lbl-client').textContent = ticket.clientName;
             document.getElementById('lbl-device').textContent = `${ticket.deviceBrand} ${ticket.deviceModel}`;
@@ -844,7 +848,6 @@
             document.getElementById('modal-label').classList.add('flex');
         }
 
-        // Helpers
         function getStatusClass(status) {
             switch(status) {
                 case 'Pendiente': return 'status-pendiente';
@@ -877,7 +880,6 @@
             }, 3000);
         }
 
-        // Iniciar en tab activos
         switchTab('activos');
     </script>
 </body>
