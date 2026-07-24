@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fixlew - Control de Taller</title>
+    <meta name="theme-color" content="#2563EB">
+    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/192px-React-icon.svg.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Iconos Phosphor -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .app-container { max-width: 480px; margin: 0 auto; background: white; min-height: 100vh; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Animaciones */
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Estilos de estado */
+        .status-pendiente { background-color: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+        .status-reparacion { background-color: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE; }
+        .status-listo { background-color: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+        .status-entregado { background-color: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 shadow-md z-10 flex justify-between items-center sticky top-0">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="ph-fill ph-wrench"></i> Fixlew
+                </h1>
+                <p id="user-status" class="text-xs text-blue-200">Conectando...</p>
+            </div>
+            <button id="btn-search" class="p-2 hover:bg-blue-700 rounded-full transition">
+                <i class="ph ph-magnifying-glass text-xl"></i>
+            </button>
+        </header>
+
+        <!-- Search Bar (Oculto por defecto) -->
+        <div id="search-bar" class="hidden bg-blue-600 px-4 pb-4">
+            <input type="text" id="search-input" placeholder="Buscar por cliente, modelo o #..." class="w-full px-4 py-2 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300">
+        </div>
+
+        <!-- Contenido Principal -->
+        <main id="main-content" class="flex-1 overflow-y-auto bg-gray-50 pb-20">
+            <!-- Pantalla: Lista de Trabajos -->
+            <div id="screen-list" class="p-4 space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-semibold text-gray-700" id="list-title">Trabajos Activos</h2>
+                    <span id="active-count" class="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded-full">0</span>
+                </div>
+                <div id="tickets-container" class="space-y-3">
+                    <!-- Los tickets se renderizan aquí -->
+                    <div class="text-center py-10 text-gray-400">
+                        <i class="ph ph-spinner-gap animate-spin text-3xl mx-auto mb-2"></i>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pantalla: Nuevo Trabajo -->
+            <div id="screen-new" class="hidden p-4">
+                <h2 class="font-semibold text-gray-700 mb-4 text-lg border-b pb-2">Nuevo Ingreso</h2>
+                <form id="form-new-ticket" class="space-y-4 fade-in">
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                        <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-user"></i> Datos del Cliente</h3>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Nombre Completo *</label>
+                            <input type="text" id="t-clientName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Teléfono (WhatsApp) *</label>
+                            <input type="tel" id="t-clientPhone" required placeholder="Ej: 2804123456" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                        <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-device-mobile"></i> Datos del Equipo</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Tipo de Equipo *</label>
+                                <select id="t-category" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+                                    <option value="Celular">Celular</option>
+                                    <option value="Notebook">Notebook</option>
+                                    <option value="PC Escritorio">PC Escritorio</option>
+                                    <option value="Tablet">Tablet</option>
+                                    <option value="Consola">Consola</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Marca *</label>
+                                <input type="text" id="t-brand" required placeholder="Ej: Samsung" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Modelo *</label>
+                                <input type="text" id="t-model" required placeholder="Ej: A52" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Problema Reportado / Motivo *</label>
+                            <textarea id="t-issue" required rows="3" placeholder="Ej: No carga, pantalla rota..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Accesorios dejados (Opcional)</label>
+                            <input type="text" id="t-accessories" placeholder="Ej: Funda, cargador..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                        <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($) - Opcional</label>
+                            <input type="number" id="t-advance" placeholder="Ej: 5000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-blue-700 transition active:scale-95 flex justify-center items-center gap-2">
+                        <i class="ph ph-plus-circle text-lg"></i> Registrar Ingreso
+                    </button>
+                </form>
+            </div>
+
+            <!-- Pantalla: Resumen Financiero -->
+            <div id="screen-resumen" class="hidden p-4 space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-semibold text-gray-700">Resumen Mensual</h2>
+                    <input type="month" id="stats-month" class="px-2 py-1 border rounded text-sm outline-none bg-white shadow-sm">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-green-600 uppercase mb-1">Ingresos Brutos</p>
+                        <p class="text-xl font-black text-green-700 truncate" id="stat-revenue">$0</p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl border border-red-100 shadow-sm">
+                        <p class="text-[10px] font-bold text-red-600 uppercase mb-1">Costo Repuestos</p>
+                        <p class="text-xl font-black text-red-700 truncate" id="stat-costs">$0</p>
+                    </div>
+                    <div class="bg-blue-600 p-4 rounded-xl shadow-md col-span-2 text-white">
+                        <p class="text-xs font-bold text-blue-200 uppercase mb-1">Ganancia Neta (Mes)</p>
+                        <p class="text-3xl font-black" id="stat-profit">$0</p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h3 class="text-sm font-bold text-gray-600 mb-2 border-b pb-1">Trabajos Entregados</h3>
+                    <div id="stats-tickets-container" class="space-y-2 pb-8">
+                        <!-- Lista generada via JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <nav class="bg-white border-t border-gray-200 fixed bottom-0 w-full max-w-[480px] pb-safe z-40">
+            <div class="flex justify-around items-center h-16">
+                <button onclick="switchTab('activos')" id="tab-activos" class="nav-btn flex-1 flex flex-col items-center justify-center text-blue-600 transition-colors">
+                    <i class="ph-fill ph-wrench text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">Activos</span>
+                </button>
+                <button onclick="switchTab('nuevo')" id="tab-nuevo" class="nav-btn flex-1 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
+                    <div class="bg-blue-500 text-white rounded-full p-2 mb-1 shadow-md -mt-4 border-4 border-white">
+                        <i class="ph ph-plus text-xl"></i>
+                    </div>
+                    <span class="text-[10px] font-medium">Nuevo</span>
+                </button>
+                <button onclick="switchTab('historial')" id="tab-historial" class="nav-btn flex-1 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
+                    <i class="ph-fill ph-archive-box text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">Historial</span>
+                </button>
+                <button onclick="switchTab('resumen')" id="tab-resumen" class="nav-btn flex-1 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
+                    <i class="ph-fill ph-chart-bar text-2xl mb-1"></i>
+                    <span class="text-[10px] font-medium">Resumen</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Modal de Detalle de Ticket -->
+        <div id="modal-detail" class="fixed inset-0 bg-black/50 z-50 hidden flex-col justify-end max-w-[480px] mx-auto">
+            <div class="bg-white w-full rounded-t-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <span id="mdl-number" class="bg-gray-800 text-white px-2 py-1 rounded text-sm">#000</span>
+                        Detalle del Servicio
+                    </h3>
+                    <button onclick="closeModal()" class="p-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600">
+                        <i class="ph ph-x text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="p-4 overflow-y-auto flex-1 space-y-5">
+                    <!-- Estado y Acciones Rápidas -->
+                    <div class="flex gap-2">
+                        <select id="mdl-status" class="flex-1 font-semibold text-sm px-3 py-2 rounded-lg border outline-none appearance-none cursor-pointer">
+                            <option value="Pendiente">Pendiente (En cola)</option>
+                            <option value="En Reparación">En Reparación</option>
+                            <option value="Listo">Listo para Entregar</option>
+                            <option value="Entregado">Entregado</option>
+                        </select>
+                        <button onclick="printLabel()" class="bg-gray-100 p-2 rounded-lg text-gray-700 border hover:bg-gray-200" title="Ver Etiqueta">
+                            <i class="ph ph-barcode text-xl"></i>
+                        </button>
+                    </div>
+
+                    <!-- Info Info -->
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="bg-gray-50 p-3 rounded-lg border">
+                            <p class="text-xs text-gray-500 mb-1 flex items-center gap-1"><i class="ph ph-user"></i> Cliente</p>
+                            <p class="font-semibold" id="mdl-client">Nombre</p>
+                            <p class="text-gray-600 text-xs mt-1" id="mdl-phone">123456</p>
+                            <a id="btn-whatsapp" target="_blank" class="mt-2 text-xs bg-green-500 text-white px-2 py-1 rounded inline-flex items-center gap-1 hover:bg-green-600">
+                                <i class="ph ph-whatsapp-logo"></i> Avisar
+                            </a>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg border">
+                            <p class="text-xs text-gray-500 mb-1 flex items-center gap-1"><i class="ph ph-device-mobile"></i> Equipo</p>
+                            <p class="font-semibold" id="mdl-device">Marca Modelo</p>
+                            <p class="text-gray-600 text-xs mt-1" id="mdl-category">Categoría</p>
+                            <p class="text-gray-500 text-xs mt-1 italic" id="mdl-date">Ingresó: 00/00</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-1">Problema Reportado</h4>
+                        <div class="bg-red-50 text-red-800 p-3 rounded-lg text-sm border border-red-100" id="mdl-issue">
+                            Problema
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-1">Accesorios</h4>
+                        <p class="text-sm text-gray-700" id="mdl-accessories">-</p>
+                    </div>
+
+                    <hr class="border-gray-200">
+
+                    <!-- Zona de trabajo del técnico -->
+                    <div class="space-y-3 pb-4">
+                        <h4 class="text-sm font-bold text-blue-600 flex items-center gap-1"><i class="ph ph-wrench"></i> Informe Técnico y Finanzas</h4>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Detalle del trabajo realizado</label>
+                            <textarea id="mdl-service-details" rows="2" placeholder="Ej: Se reemplazó pin de carga y se limpió placa..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo Pagado ($)</label>
+                                <input type="number" id="mdl-advance" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 outline-none text-sm text-gray-600 font-semibold" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Costo Repuestos ($)</label>
+                                <input type="number" id="mdl-parts" placeholder="Ej: 8000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-bold text-green-700 mb-1">Precio Total a Cobrar al Cliente ($)</label>
+                                <div class="flex gap-2 items-center">
+                                    <input type="number" id="mdl-price" placeholder="Ej: 25000" class="w-full px-3 py-2 border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-lg font-bold text-gray-800">
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1" id="mdl-balance-hint">Resta abonar: $0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <div class="p-4 border-t bg-gray-50 flex gap-2">
+                    <button onclick="deleteCurrentTicket()" class="px-4 py-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-lg font-medium text-sm transition">
+                        Eliminar
+                    </button>
+                    <button onclick="saveTicketDetails()" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow hover:bg-blue-700 transition">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-sm shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-[100] whitespace-nowrap flex items-center gap-2">
+            <i id="toast-icon" class="ph ph-check-circle text-green-400 text-lg"></i>
+            <span id="toast-msg">Mensaje</span>
+        </div>
+
+        <!-- Modal Etiqueta (Para imprimir/captura) -->
+        <div id="modal-label" class="fixed inset-0 bg-white z-[60] hidden flex-col items-center justify-center p-6">
+            <button onclick="document.getElementById('modal-label').classList.add('hidden')" class="absolute top-4 right-4 p-2 bg-gray-100 rounded-full text-gray-600">
+                <i class="ph ph-x text-xl"></i>
+            </button>
+            
+            <div class="border-4 border-black p-8 text-center max-w-sm w-full space-y-4 shadow-2xl bg-white rounded-xl">
+                <h1 class="text-6xl font-black tracking-tighter" id="lbl-number">#000</h1>
+                <hr class="border-black border-2">
+                <div>
+                    <p class="text-sm font-bold uppercase text-gray-500">Cliente</p>
+                    <p class="text-2xl font-bold truncate" id="lbl-client">Juan Perez</p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold uppercase text-gray-500">Equipo</p>
+                    <p class="text-xl font-semibold" id="lbl-device">Samsung A52</p>
+                    <p class="text-md" id="lbl-category">Celular</p>
+                </div>
+                <div class="pt-4 text-xs text-gray-400">
+                    <p>Ingreso: <span id="lbl-date"></span></p>
+                </div>
+            </div>
+            <p class="mt-8 text-gray-500 text-sm">Toma una captura de pantalla para imprimir o enviar.</p>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Setup PWA - Service Worker & Manifest
+        const manifest = {
+            name: "Fixlew PWA", short_name: "Fixlew", start_url: ".", display: "standalone",
+            background_color: "#f3f4f6", theme_color: "#2563EB",
+            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M227.32,73.25A16,16,0,0,0,216,64H160V48a16,16,0,0,0-16-16H112A16,16,0,0,0,96,48V64H40a16,16,0,0,0-11.32,9.25c-3.14,7.24-1.39,15.65,4.41,21.06L64,123.08v52.79A16.13,16.13,0,0,0,79.8,192h96.4A16.13,16.13,0,0,0,192,175.87V123.08l30.91-28.77C228.71,88.9,230.46,80.49,227.32,73.25Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
+        };
+        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
+        if ('serviceWorker' in navigator) {
+            const swBlob = new Blob(["self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('activate', e => e.waitUntil(clients.claim())); self.addEventListener('fetch', e => {});"], {type: 'application/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(err => console.log('SW Error:', err));
+        }
+
+        // Environment variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tech-repair-app-local';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, currentUserId;
+        let tickets = [];
+        let currentTab = 'activos';
+        let currentEditingId = null;
+        let unsubscribeTickets = null;
+
+        // Elements
+        const ticketsContainer = document.getElementById('tickets-container');
+        const activeCount = document.getElementById('active-count');
+        const listTitle = document.getElementById('list-title');
+        const searchInput = document.getElementById('search-input');
+
+        // Inicialización
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            authenticate();
+        } else {
+            showToast("Error: Configuración de Firebase no encontrada", "error");
+        }
+
+        async function authenticate() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+                document.getElementById('user-status').textContent = "Error de conexión";
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                document.getElementById('user-status').textContent = "Conectado";
+                loadTickets();
+            } else {
+                currentUserId = null;
+            }
+        });
+
+        function loadTickets() {
+            if (!currentUserId) return;
+            
+            const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
+            
+            // Usamos un query simple sin orderBy para evitar necesidad de índices, ordenamos en memoria.
+            if(unsubscribeTickets) unsubscribeTickets();
+            
+            unsubscribeTickets = onSnapshot(ticketsRef, (snapshot) => {
+                tickets = [];
+                snapshot.forEach((doc) => {
+                    tickets.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Ordenar en memoria: Más recientes primero (mayor ID de servicio)
+                tickets.sort((a, b) => b.serviceNumber - a.serviceNumber);
+                
+                if (currentTab === 'resumen') {
+                    renderStats();
+                } else {
+                    renderTickets();
+                }
+            }, (error) => {
+                console.error("Error loading tickets:", error);
+                showToast("Error al cargar datos", "error");
+            });
+        }
+
+        function getNextServiceNumber() {
+            if (tickets.length === 0) return 1;
+            const maxNumber = Math.max(...tickets.map(t => parseInt(t.serviceNumber) || 0));
+            return maxNumber + 1;
+        }
+
+        function renderTickets() {
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            let filteredTickets = tickets.filter(t => {
+                // Filtrar por tab activo
+                if (currentTab === 'activos' && t.status === 'Entregado') return false;
+                if (currentTab === 'historial' && t.status !== 'Entregado') return false;
+                
+                // Filtrar por busqueda
+                if (searchTerm) {
+                    return (
+                        (t.clientName || '').toLowerCase().includes(searchTerm) ||
+                        (t.deviceModel || '').toLowerCase().includes(searchTerm) ||
+                        (t.serviceNumber.toString().padStart(3,'0')).includes(searchTerm)
+                    );
+                }
+                return true;
+            });
+
+            // Actualizar conteo
+            if (currentTab === 'activos') {
+                activeCount.textContent = filteredTickets.length;
+                activeCount.classList.remove('hidden');
+                listTitle.textContent = "Trabajos Activos";
+            } else {
+                activeCount.classList.add('hidden');
+                listTitle.textContent = "Historial (Entregados)";
+            }
+
+            ticketsContainer.innerHTML = '';
+
+            if (filteredTickets.length === 0) {
+                ticketsContainer.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 bg-white rounded-xl shadow-sm border border-gray-100">
+                        <i class="ph ph-empty text-4xl mb-2"></i>
+                        <p class="text-sm">No hay trabajos aquí.</p>
+                    </div>`;
+                return;
+            }
+
+            filteredTickets.forEach(ticket => {
+                const el = document.createElement('div');
+                const numFmt = ticket.serviceNumber.toString().padStart(3, '0');
+                
+                // Determinar clase de estado
+                let statusClass = '';
+                let statusIcon = '';
+                switch(ticket.status) {
+                    case 'Pendiente': statusClass = 'status-pendiente'; statusIcon = 'ph-clock'; break;
+                    case 'En Reparación': statusClass = 'status-reparacion'; statusIcon = 'ph-wrench'; break;
+                    case 'Listo': statusClass = 'status-listo'; statusIcon = 'ph-check-circle'; break;
+                    case 'Entregado': statusClass = 'status-entregado'; statusIcon = 'ph-archive'; break;
+                }
+
+                el.className = `bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between gap-3 active:scale-[0.98] transition cursor-pointer fade-in`;
+                el.onclick = () => openModal(ticket.id);
+                
+                el.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-bold text-gray-800 text-lg">#${numFmt}</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${statusClass}">
+                                <i class="ph ${statusIcon}"></i> ${ticket.status}
+                            </span>
+                        </div>
+                        <p class="font-semibold text-gray-700 truncate text-sm">${ticket.clientName}</p>
+                        <p class="text-gray-500 text-xs truncate">${ticket.deviceBrand} ${ticket.deviceModel}</p>
+                    </div>
+                    <div class="text-right flex flex-col justify-between items-end h-full">
+                        <span class="text-[10px] text-gray-400 font-medium">${new Date(ticket.dateIntake).toLocaleDateString('es-ES', {day:'2-digit', month:'short'})}</span>
+                        <i class="ph ph-caret-right text-gray-300 text-lg mt-2"></i>
+                    </div>
+                `;
+                ticketsContainer.appendChild(el);
+            });
+        }
+
+        // Tabs
+        window.switchTab = function(tab) {
+            currentTab = tab;
+            
+            // Actualizar botones Nav
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600');
+                btn.classList.add('text-gray-400');
+                
+                // Reset icon style for actives/historial
+                const icon = btn.querySelector('i');
+                if(icon && btn.id !== 'tab-nuevo') {
+                    icon.classList.remove('ph-fill');
+                    icon.classList.add('ph');
+                }
+            });
+            
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            activeBtn.classList.remove('text-gray-400');
+            activeBtn.classList.add('text-blue-600');
+            const activeIcon = activeBtn.querySelector('i');
+            if(activeIcon && tab !== 'nuevo') {
+                activeIcon.classList.remove('ph');
+                activeIcon.classList.add('ph-fill');
+            }
+
+            // Mostrar pantallas
+            document.getElementById('screen-list').classList.add('hidden');
+            document.getElementById('screen-new').classList.add('hidden');
+            document.getElementById('screen-resumen').classList.add('hidden');
+            
+            if (tab === 'nuevo') {
+                document.getElementById('screen-new').classList.remove('hidden');
+                document.getElementById('search-bar').classList.add('hidden');
+            } else if (tab === 'resumen') {
+                document.getElementById('screen-resumen').classList.remove('hidden');
+                document.getElementById('search-bar').classList.add('hidden');
+                renderStats();
+            } else {
+                document.getElementById('screen-list').classList.remove('hidden');
+                renderTickets();
+            }
+        };
+
+        // Date init for stats
+        const today = new Date();
+        document.getElementById('stats-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        document.getElementById('stats-month').addEventListener('change', () => { if(currentTab === 'resumen') renderStats(); });
+
+        function renderStats() {
+            const selectedMonthVal = document.getElementById('stats-month').value;
+            if(!selectedMonthVal) return;
+            
+            let totalRevenue = 0;
+            let totalCosts = 0;
+            const container = document.getElementById('stats-tickets-container');
+            container.innerHTML = '';
+
+            const deliveredTickets = tickets.filter(t => {
+                if(t.status !== 'Entregado') return false;
+                const dateToUse = t.dateDelivery ? new Date(t.dateDelivery) : new Date(t.dateIntake);
+                const ticketMonth = `${dateToUse.getFullYear()}-${String(dateToUse.getMonth() + 1).padStart(2, '0')}`;
+                return ticketMonth === selectedMonthVal;
+            });
+
+            if(deliveredTickets.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100">No hay trabajos entregados en este mes.</p>';
+            }
+
+            deliveredTickets.forEach(t => {
+                const price = parseFloat(t.price) || 0;
+                const parts = parseFloat(t.partsCost) || 0;
+                totalRevenue += price;
+                totalCosts += parts;
+
+                container.innerHTML += `
+                    <div class="bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center text-sm shadow-sm cursor-pointer hover:bg-gray-50 active:scale-[0.98] transition" onclick="openModal('${t.id}')">
+                        <div class="flex-1 truncate">
+                            <p class="font-bold text-gray-800">#${t.serviceNumber.toString().padStart(3, '0')} - <span class="text-gray-600 font-medium">${t.clientName.split(' ')[0]}</span></p>
+                            <p class="text-xs text-gray-500 truncate">${t.deviceBrand} ${t.deviceModel}</p>
+                        </div>
+                        <div class="text-right pl-2">
+                            <p class="font-bold text-green-600">+$${price.toLocaleString()}</p>
+                            ${parts > 0 ? `<p class="text-[10px] text-red-500">-$${parts.toLocaleString()} rep.</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('stat-revenue').textContent = `$${totalRevenue.toLocaleString()}`;
+            document.getElementById('stat-costs').textContent = `$${totalCosts.toLocaleString()}`;
+            document.getElementById('stat-profit').textContent = `$${(totalRevenue - totalCosts).toLocaleString()}`;
+        }
+
+        // Buscador toggler
+        document.getElementById('btn-search').addEventListener('click', () => {
+            if(currentTab === 'nuevo') switchTab('activos');
+            const sb = document.getElementById('search-bar');
+            sb.classList.toggle('hidden');
+            if(!sb.classList.contains('hidden')) {
+                document.getElementById('search-input').focus();
+            } else {
+                document.getElementById('search-input').value = '';
+                renderTickets();
+            }
+        });
+        
+        searchInput.addEventListener('input', renderTickets);
+
+        document.getElementById('form-new-ticket').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUserId) return showToast("Error: No autenticado", "error");
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin text-lg"></i> Guardando...`;
+
+            const newTicket = {
+                serviceNumber: getNextServiceNumber(),
+                clientName: document.getElementById('t-clientName').value.trim(),
+                clientPhone: document.getElementById('t-clientPhone').value.trim(),
+                deviceCategory: document.getElementById('t-category').value,
+                deviceBrand: document.getElementById('t-brand').value.trim(),
+                deviceModel: document.getElementById('t-model').value.trim(),
+                issueDescription: document.getElementById('t-issue').value.trim(),
+                accessories: document.getElementById('t-accessories').value.trim() || '',
+                advancePayment: document.getElementById('t-advance').value.trim() || '',
+                status: 'Pendiente',
+                dateIntake: new Date().toISOString(),
+                serviceDetails: '',
+                price: '',
+                partsCost: ''
+            };
+
+            try {
+                const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
+                await addDoc(ticketsRef, newTicket);
+                
+                showToast(`Ingreso guardado exitosamente: #${newTicket.serviceNumber.toString().padStart(3,'0')}`);
+                e.target.reset();
+                switchTab('activos');
+                
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                showToast("Error al guardar el ingreso", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="ph ph-plus-circle text-lg"></i> Registrar Ingreso`;
+            }
+        });
+
+        window.openModal = function(id) {
+            const ticket = tickets.find(t => t.id === id);
+            if(!ticket) return;
+            
+            currentEditingId = id;
+            const numFmt = ticket.serviceNumber.toString().padStart(3, '0');
+            
+            document.getElementById('mdl-number').textContent = `#${numFmt}`;
+            document.getElementById('mdl-client').textContent = ticket.clientName;
+            document.getElementById('mdl-phone').textContent = ticket.clientPhone;
+            document.getElementById('mdl-device').textContent = `${ticket.deviceBrand} ${ticket.deviceModel}`;
+            document.getElementById('mdl-category').textContent = ticket.deviceCategory;
+            document.getElementById('mdl-date').textContent = `Ingresó: ${new Date(ticket.dateIntake).toLocaleDateString()}`;
+            document.getElementById('mdl-issue').textContent = ticket.issueDescription;
+            document.getElementById('mdl-accessories').textContent = ticket.accessories || 'Ninguno';
+            
+            // Set values for editing
+            document.getElementById('mdl-status').value = ticket.status;
+            document.getElementById('mdl-status').className = `flex-1 font-semibold text-sm px-3 py-2 rounded-lg outline-none appearance-none cursor-pointer ${getStatusClass(ticket.status)}`;
+            
+            document.getElementById('mdl-service-details').value = ticket.serviceDetails || '';
+            document.getElementById('mdl-advance').value = ticket.advancePayment || '';
+            document.getElementById('mdl-parts').value = ticket.partsCost || '';
+            document.getElementById('mdl-price').value = ticket.price || '';
+            
+            updateBalanceHint();
+
+            // Update Status Colors on change
+            document.getElementById('mdl-status').onchange = (e) => {
+                e.target.className = `flex-1 font-semibold text-sm px-3 py-2 rounded-lg outline-none appearance-none cursor-pointer ${getStatusClass(e.target.value)}`;
+            };
+
+            // Setup WhatsApp button
+            let msj = `Hola ${ticket.clientName.split(' ')[0]}, te escribo de Fixlew. `;
+            if(ticket.status === 'Listo') {
+                msj += `Tu equipo (${ticket.deviceBrand} ${ticket.deviceModel}) ya está listo para retirar.`;
+                const advance = parseFloat(ticket.advancePayment) || 0;
+                const price = parseFloat(ticket.price) || 0;
+                const rest = price - advance;
+                if(rest > 0) {
+                   msj += ` Resta abonar $${rest}.`;
+                } else if (price > 0) {
+                   msj += ` El costo total fue de $${price} y se encuentra abonado.`;
+                }
+            } else {
+                msj += `Te contactamos por tu equipo (${ticket.deviceBrand} ${ticket.deviceModel}). `;
+            }
+            const waUrl = `https://wa.me/${ticket.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msj)}`;
+            document.getElementById('btn-whatsapp').href = waUrl;
+
+            // Mostrar Modal
+            document.getElementById('modal-detail').classList.remove('hidden');
+            document.getElementById('modal-detail').classList.add('flex');
+        };
+
+        function updateBalanceHint() {
+            const adv = parseFloat(document.getElementById('mdl-advance').value) || 0;
+            const price = parseFloat(document.getElementById('mdl-price').value) || 0;
+            const hint = document.getElementById('mdl-balance-hint');
+            if(price > 0) {
+                const rest = price - adv;
+                hint.textContent = rest > 0 ? `Resta abonar al retirar: $${rest}` : `Totalmente abonado con anticipo.`;
+                hint.className = rest > 0 ? "text-xs font-bold text-red-500 mt-1" : "text-xs font-bold text-green-600 mt-1";
+            } else {
+                hint.textContent = "Defina el precio total para ver saldo.";
+                hint.className = "text-xs text-gray-500 mt-1";
+            }
+        }
+        
+        document.getElementById('mdl-price').addEventListener('input', updateBalanceHint);
+
+        window.closeModal = function() {
+            document.getElementById('modal-detail').classList.add('hidden');
+            document.getElementById('modal-detail').classList.remove('flex');
+            currentEditingId = null;
+        };
+
+        window.saveTicketDetails = async function() {
+            if(!currentUserId || !currentEditingId) return;
+
+            const btn = document.querySelector('#modal-detail button:last-child');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="ph ph-spinner-gap animate-spin"></i> Guardando...`;
+            btn.disabled = true;
+
+            const newStatus = document.getElementById('mdl-status').value;
+            const newDetails = document.getElementById('mdl-service-details').value;
+            const newPrice = document.getElementById('mdl-price').value;
+            const newPartsCost = document.getElementById('mdl-parts').value;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
+                const updateData = {
+                    status: newStatus,
+                    serviceDetails: newDetails,
+                    price: newPrice,
+                    partsCost: newPartsCost
+                };
+                
+                // Si se marca como entregado y no tenía fecha de entrega, ponerla
+                if(newStatus === 'Entregado') {
+                    const ticket = tickets.find(t => t.id === currentEditingId);
+                    if(!ticket.dateDelivery) updateData.dateDelivery = new Date().toISOString();
+                }
+
+                await updateDoc(docRef, updateData);
+                showToast("Cambios guardados");
+                closeModal();
+            } catch(e) {
+                console.error(e);
+                showToast("Error al guardar cambios", "error");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.deleteCurrentTicket = async function() {
+            if(!currentUserId || !currentEditingId) return;
+            // Simple confirmation modal instead of alert/confirm
+            if(confirm("¿Estás seguro de eliminar este registro de servicio?")) {
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
+                    await deleteDoc(docRef);
+                    showToast("Registro eliminado");
+                    closeModal();
+                } catch(e) {
+                    showToast("Error al eliminar", "error");
+                }
+            }
+        }
+        
+        // Función para etiqueta (impresión simple)
+        window.printLabel = function() {
+            if(!currentEditingId) return;
+            const ticket = tickets.find(t => t.id === currentEditingId);
+            
+            document.getElementById('lbl-number').textContent = `#${ticket.serviceNumber.toString().padStart(3, '0')}`;
+            document.getElementById('lbl-client').textContent = ticket.clientName;
+            document.getElementById('lbl-device').textContent = `${ticket.deviceBrand} ${ticket.deviceModel}`;
+            document.getElementById('lbl-category').textContent = ticket.deviceCategory;
+            document.getElementById('lbl-date').textContent = new Date(ticket.dateIntake).toLocaleDateString('es-ES', {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+            
+            document.getElementById('modal-label').classList.remove('hidden');
+            document.getElementById('modal-label').classList.add('flex');
+        }
+
+        // Helpers
+        function getStatusClass(status) {
+            switch(status) {
+                case 'Pendiente': return 'status-pendiente';
+                case 'En Reparación': return 'status-reparacion';
+                case 'Listo': return 'status-listo';
+                case 'Entregado': return 'status-entregado';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        let toastTimeout;
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            document.getElementById('toast-msg').textContent = msg;
+            
+            if (type === "success") {
+                icon.className = "ph ph-check-circle text-green-400 text-lg";
+            } else {
+                icon.className = "ph ph-warning-circle text-red-400 text-lg";
+            }
+
+            toast.classList.remove('opacity-0', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-4');
+            }, 3000);
+        }
+
+        // Iniciar en tab activos
+        switchTab('activos');
+    </script>
+</body>
+</html>
