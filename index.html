@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fixlew - Control de Taller</title>
     <meta name="theme-color" content="#2563EB">
-    <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/192px-React-icon.svg.png">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M176,16H80A16,16,0,0,0,64,32V224a16,16,0,0,0,16,16h96a16,16,0,0,0,16-16V32A16,16,0,0,0,176,16ZM160,224H96V192h64Zm0-48H96V48h64ZM235.31,140.69a16,16,0,0,0-22.62,0L184,169.37V104a8,8,0,0,0-8-8H144a8,8,0,0,0-8,8v65.37l-28.69-28.68a16,16,0,0,0-22.62,22.62l48,48a16,16,0,0,0,22.62,0l48-48A16,16,0,0,0,235.31,140.69Z' fill='%232563EB'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Iconos Phosphor -->
@@ -323,7 +323,7 @@
         const manifest = {
             name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
             background_color: "#f3f4f6", theme_color: "#2563EB",
-            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M227.32,73.25A16,16,0,0,0,216,64H160V48a16,16,0,0,0-16-16H112A16,16,0,0,0,96,48V64H40a16,16,0,0,0-11.32,9.25c-3.14,7.24-1.39,15.65,4.41,21.06L64,123.08v52.79A16.13,16.13,0,0,0,79.8,192h96.4A16.13,16.13,0,0,0,192,175.87V123.08l30.91-28.77C228.71,88.9,230.46,80.49,227.32,73.25Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
+            icons: [{ src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Cpath d='M176,16H80A16,16,0,0,0,64,32V224a16,16,0,0,0,16,16h96a16,16,0,0,0,16-16V32A16,16,0,0,0,176,16ZM160,224H96V192h64Zm0-48H96V48h64ZM235.31,140.69a16,16,0,0,0-22.62,0L184,169.37V104a8,8,0,0,0-8-8H144a8,8,0,0,0-8,8v65.37l-28.69-28.68a16,16,0,0,0-22.62,22.62l48,48a16,16,0,0,0,22.62,0l48-48A16,16,0,0,0,235.31,140.69Z' fill='%232563EB'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" }]
         };
         document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
         if ('serviceWorker' in navigator) {
