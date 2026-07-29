@@ -47,7 +47,7 @@
         <i class="ph-fill ph-wrench text-white text-6xl mb-4"></i>
         <h1 class="text-white text-3xl font-black tracking-tight mb-6">Fixlew</h1>
         <div class="spinner"></div>
-        <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando a la nube...</p>
+        <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando al Taller...</p>
     </div>
 
     <header class="bg-blue-600 text-white p-4 shadow-md z-10 shrink-0 pt-safe flex justify-between items-center">
@@ -260,6 +260,7 @@
         </button>
     </nav>
 
+    <!-- Modal de Ticket -->
     <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[50] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
         <div id="modalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
             
@@ -327,6 +328,7 @@
         </div>
     </div>
 
+    <!-- Modal de Inventario -->
     <div id="inventoryModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
         <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
             
@@ -386,7 +388,7 @@
     </div>
 
     <script type="module">
-        // Helper: Custom Toast Notifier
+        // --- 1. Utilidades y Configuración Base ---
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -401,7 +403,7 @@
             }, 3000);
         }
 
-        window.alert = (msg) => showToast(msg, 'error');
+        window.alert = (msg) => showToast(msg, 'error'); // Redirigir alertas nativas al Toast
         
         function parseMoneyInput(val) {
             if (!val) return 0;
@@ -433,6 +435,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Si el entorno no inyecta configuración, usa la tuya (fixlew)
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
             authDomain: "fixlew.firebaseapp.com",
@@ -442,15 +445,17 @@
             appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
         };
 
-        let app, auth, db, currentUserId = null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fixlew_app'; 
+        let app, auth, db;
+        // Nombre global de tu espacio de datos para que NO se pierda si cambia el ID de usuario anónimo.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fixlew_taller'; 
+        
         let tickets = [], inventory = []; 
         let currentEditingId = null, currentStatusFilter = 'activo';
         let currentBase64Photo = null, currentTicketBase64Photo = null;
-        let editingInventoryId = null; // Para saber si editamos o creamos repuesto
-        let searchInventoryTerm = ""; // Para el buscador inteligente
-        let inlineDeleteConfirmId = null; // Rastrea qué tarjeta está pidiendo confirmación
-        let inlineDeleteTimer = null; // Temporizador para cancelar la confirmación
+        let editingInventoryId = null; 
+        let searchInventoryTerm = ""; 
+        let inlineDeleteConfirmId = null; 
+        let inlineDeleteTimer = null; 
 
         try {
             app = initializeApp(firebaseConfig);
@@ -460,18 +465,14 @@
 
             async function initAuth() {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                        return;
-                    } catch (error) {
-                        console.warn("Token falló, recurriendo a anónimo:", error);
-                    }
+                    try { await signInWithCustomToken(auth, __initial_auth_token); return; } 
+                    catch (error) { console.warn("Token falló, recurriendo a anónimo"); }
                 }
                 
                 try {
                     await signInAnonymously(auth);
                 } catch (error) {
-                    showToast("Error de conexión. Revisa los permisos de Firebase.", "error");
+                    showToast("Error de conexión. Verifica la Autenticación Anónima en tu Firebase.", "error");
                     document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error';
                     document.getElementById('splash-text').innerText = "Error de Autenticación";
                     setTimeout(removeSplash, 1500);
@@ -482,8 +483,7 @@
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    currentUserId = user.uid;
-                    document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> Conectado';
+                    document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> En línea';
                     loadTickets(); 
                     loadInventory(); 
                     removeSplash();
@@ -510,15 +510,19 @@
             }
         };
 
+        // ATENCIÓN: Cambiamos la ruta a "public/data" para que el taller sincronice sin depender de la sesión anónima que se reinicia
         function loadTickets() {
-            const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
+            const ticketsRef = collection(db, 'artifacts', appId, 'public', 'data', 'tickets');
             onSnapshot(query(ticketsRef), (snapshot) => {
                 let tempTickets = [];
                 snapshot.forEach((doc) => tempTickets.push({ id: doc.id, ...doc.data() }));
                 tickets = tempTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 renderTickets();
                 calculateSummary();
-            }, (error) => console.error("Error tickets:", error));
+            }, (error) => {
+                console.error("Error tickets:", error);
+                showToast("Error al cargar trabajos", "error");
+            });
         }
 
         function renderTickets() {
@@ -555,6 +559,7 @@
             document.getElementById('count-activos').innerText = activosCount;
         }
 
+        // Compresor de fotos (Ticket e Inventario)
         function setupPhotoCompressor(inputId, previewId, placeholderId, containerId, callback) {
             const inputEl = document.getElementById(inputId);
             if (!inputEl) return;
@@ -595,6 +600,7 @@
         setupPhotoCompressor('f-photo', 'f-photo-preview', 'f-photo-placeholder', 'f-photo-preview-container', (b64) => currentTicketBase64Photo = b64);
         setupPhotoCompressor('i-photo', 'i-photo-preview', 'i-photo-placeholder', 'i-photo-preview-container', (b64) => currentBase64Photo = b64);
 
+        // Previsualizar Ganancia en Nuevo Ingreso
         function updateNuevoPreview() {
             const precio = parseMoneyInput(document.getElementById('f-precio').value);
             const costo = parseMoneyInput(document.getElementById('f-costo').value);
@@ -627,7 +633,7 @@
                 };
 
                 await Promise.race([
-                    addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets'), newTicket),
+                    addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tickets'), newTicket),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
                 ]).catch(err => { if(err.message !== "offline-save") throw err; });
                 
@@ -712,7 +718,7 @@
             btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', currentEditingId);
                 const ticketActual = tickets.find(t => t.id === currentEditingId);
                 
                 const updates = {
@@ -739,7 +745,7 @@
         });
 
         function loadInventory() {
-            const inventoryRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory');
+            const inventoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
             onSnapshot(query(inventoryRef), (snapshot) => {
                 let tempInv = []; 
                 snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
@@ -748,7 +754,6 @@
             });
         }
 
-        // Buscador
         document.getElementById('search-inventario').addEventListener('input', (e) => {
             searchInventoryTerm = e.target.value.toLowerCase();
             renderInventory();
@@ -758,25 +763,22 @@
             if (event) event.stopPropagation();
             
             if (inlineDeleteConfirmId !== id) {
-                // Primer clic: Pedir confirmación
                 inlineDeleteConfirmId = id;
-                renderInventory(); // Re-renderizar para mostrar el botón en rojo
+                renderInventory(); 
                 
                 clearTimeout(inlineDeleteTimer);
                 inlineDeleteTimer = setTimeout(() => {
-                    // Cancelar si pasan 3 segundos
                     if (inlineDeleteConfirmId === id) {
                         inlineDeleteConfirmId = null;
                         renderInventory();
                     }
                 }, 3000);
             } else {
-                // Segundo clic: Ejecutar eliminación
                 clearTimeout(inlineDeleteTimer);
                 inlineDeleteConfirmId = null;
                 
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id));
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
                     showToast("Repuesto eliminado");
                 } catch(e) {
                     console.error(e);
@@ -788,7 +790,6 @@
         function renderInventory() {
             let html = '';
             
-            // Filtrar por texto de búsqueda
             const filteredInventory = inventory.filter(item => 
                 item.name.toLowerCase().includes(searchInventoryTerm)
             );
@@ -802,7 +803,6 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group">
                         ${photoHtml}
                         
-                        <!-- Botones de Acción (Absoluto en la esquina) -->
                         <div class="absolute top-2 right-2 flex gap-1.5 z-10">
                             <button onclick="confirmInlineDelete('${item.id}', event)" class="w-8 h-8 ${isConfirming ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-500 border-gray-200'} backdrop-blur rounded-full flex items-center justify-center shadow-sm border active:scale-95 transition">
                                 <i class="ph-fill ${isConfirming ? 'ph-warning' : 'ph-trash'} text-sm"></i>
@@ -836,11 +836,10 @@
         }
 
         window.openAddInventoryModal = () => {
-            editingInventoryId = null; // Modo Creación
+            editingInventoryId = null; 
             currentBase64Photo = null;
             document.getElementById('inventoryForm').reset();
             
-            // UI para Modo Creación
             document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto';
             document.getElementById('deleteInventoryBtn').classList.add('hidden');
             
@@ -857,15 +856,13 @@
             const item = inventory.find(i => i.id === id);
             if(!item) return;
 
-            editingInventoryId = id; // Modo Edición
+            editingInventoryId = id; 
             currentBase64Photo = item.photoBase64 || null;
             
-            // Llenar datos
             document.getElementById('i-name').value = item.name;
             document.getElementById('i-quantity').value = item.quantity;
             document.getElementById('i-cost').value = item.cost;
             
-            // Foto existente
             const previewContainer = document.getElementById('i-photo-preview-container');
             const placeholder = document.getElementById('i-photo-placeholder');
             const previewImg = document.getElementById('i-photo-preview');
@@ -881,10 +878,8 @@
                 placeholder.classList.remove('hidden');
             }
 
-            // UI para Modo Edición
             document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-pencil-simple text-blue-600"></i> Editar Repuesto';
             
-            // Resetear estado del botón eliminar por si se quedó atascado
             deleteConfirmStep = false;
             const delBtn = document.getElementById('deleteInventoryBtn');
             delBtn.classList.remove('hidden');
@@ -904,7 +899,6 @@
             setTimeout(() => m.classList.add('hidden'), 300);
         };
 
-        // Lógica de Eliminación (Doble Tap para confirmar)
         let deleteConfirmStep = false;
         window.confirmDeleteInventory = async () => {
             if (!editingInventoryId) return;
@@ -912,13 +906,11 @@
             const btn = document.getElementById('deleteInventoryBtn');
 
             if (!deleteConfirmStep) {
-                // Primer clic: Pedir confirmación
                 deleteConfirmStep = true;
                 btn.innerHTML = '<i class="ph ph-warning text-lg"></i>';
                 btn.classList.replace('bg-red-100', 'bg-red-600');
                 btn.classList.replace('text-red-600', 'text-white');
                 
-                // Reiniciar si no presiona de nuevo en 3 segundos
                 setTimeout(() => {
                     if (deleteConfirmStep) {
                         deleteConfirmStep = false;
@@ -928,10 +920,9 @@
                     }
                 }, 3000);
             } else {
-                // Segundo clic: Ejecutar eliminación
                 btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', editingInventoryId));
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', editingInventoryId));
                     showToast("Repuesto eliminado correctamente");
                     closeInventoryModal();
                 } catch(e) {
@@ -942,7 +933,6 @@
             }
         };
 
-        // Lógica de Guardado (Crear o Actualizar)
         document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
             const name = document.getElementById('i-name').value.trim();
             if(!name) return showToast("Ingresa el nombre del repuesto.", "error");
@@ -959,17 +949,15 @@
 
             try {
                 if (editingInventoryId) {
-                    // Actualizar Existente
                     await Promise.race([
-                        updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', editingInventoryId), dataToSave),
+                        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', editingInventoryId), dataToSave),
                         new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
                     ]).catch(err => { if(err.message !== "offline-save") throw err; });
                     showToast("Repuesto actualizado");
                 } else {
-                    // Crear Nuevo
                     dataToSave.dateAdded = new Date().toISOString();
                     await Promise.race([
-                        addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory'), dataToSave),
+                        addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), dataToSave),
                         new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
                     ]).catch(err => { if(err.message !== "offline-save") throw err; });
                     showToast("Agregado al stock");
@@ -986,7 +974,7 @@
         window.updateStock = async (id, step) => {
             const item = inventory.find(i => i.id === id); if(!item) return;
             try { 
-                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
             } catch(e) { console.error(e); }
         };
 
