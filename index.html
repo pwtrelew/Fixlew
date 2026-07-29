@@ -433,7 +433,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const myFirebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
             authDomain: "fixlew.firebaseapp.com",
             projectId: "fixlew",
@@ -443,7 +443,7 @@
         };
 
         let app, auth, db, currentUserId = null;
-        const appId = "fixlew_app"; 
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fixlew_app'; 
         let tickets = [], inventory = []; 
         let currentEditingId = null, currentStatusFilter = 'activo';
         let currentBase64Photo = null, currentTicketBase64Photo = null;
@@ -453,7 +453,7 @@
         let inlineDeleteTimer = null; // Temporizador para cancelar la confirmación
 
         try {
-            app = initializeApp(myFirebaseConfig);
+            app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
             enableIndexedDbPersistence(db).catch(err => console.log("Offline Persistence Error:", err.code));
