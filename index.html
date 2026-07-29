@@ -31,9 +31,17 @@
             border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #toast-container { position: fixed; top: env(safe-area-inset-top, 20px); left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 10px; align-items: center; width: 90%; pointer-events: none; }
+        .toast { background: #333; color: white; padding: 12px 20px; border-radius: 99px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transform: translateY(-20px); transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); display: flex; align-items: center; gap: 8px; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background: #10B981; }
+        .toast-error { background: #EF4444; }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden text-gray-800">
+
+    <div id="toast-container"></div>
 
     <div id="splash-screen">
         <i class="ph-fill ph-wrench text-white text-6xl mb-4"></i>
@@ -51,18 +59,10 @@
                 <i class="ph ph-spinner animate-spin"></i> Conectando...
             </p>
         </div>
-        <button class="w-10 h-10 rounded-full bg-blue-700/50 flex items-center justify-center active:bg-blue-800 transition">
-            <i class="ph ph-magnifying-glass text-xl"></i>
-        </button>
     </header>
 
     <main class="flex-1 overflow-y-auto bg-gray-50 p-4 relative">
         
-        <div id="config-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-4 shadow-sm text-sm">
-            <p class="font-bold mb-1"><i class="ph-fill ph-warning-circle"></i> Inicio Anónimo Desactivado</p>
-            <p>Por favor, ve a la consola de Firebase > Authentication > Sign-in method, y habilita el proveedor <b>"Anónimo"</b> para que la app pueda guardar los datos.</p>
-        </div>
-
         <div id="tab-activos" class="tab-content active space-y-3 pb-20">
             <div class="flex justify-between items-end mb-2">
                 <h2 class="text-lg font-bold text-gray-700">Trabajos en Taller</h2>
@@ -120,7 +120,6 @@
                             <input type="text" id="f-accesorios" placeholder="Ej: Funda, cargador..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
                         </div>
                         
-                        <!-- AQUI ESTA EL BOTON DE LA FOTO QUE FALTABA -->
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mt-2 mb-1">Foto del Equipo / Estado (Opcional)</label>
                             <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
@@ -142,14 +141,29 @@
 
                 <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                     <h3 class="text-xs font-bold text-blue-600 mb-3 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Presupuesto Total ($)</label>
-                            <input type="text" inputmode="decimal" id="f-precio" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Presupuesto ($)</label>
+                            <input type="text" inputmode="decimal" id="f-precio" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white text-gray-800 font-bold">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($)</label>
-                            <input type="text" inputmode="decimal" id="f-anticipo" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Costo Repuestos ($)</label>
+                            <input type="text" inputmode="decimal" id="f-costo" placeholder="0" class="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm bg-red-50 text-red-700 font-bold">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($)</label>
+                        <input type="text" inputmode="decimal" id="f-anticipo" placeholder="0" class="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 outline-none text-sm bg-green-50 text-green-700 font-bold">
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
+                        <div class="bg-gray-50 p-2 rounded-lg text-center">
+                            <span class="block text-[10px] text-gray-400 font-bold uppercase">Restará Cobrar</span>
+                            <span id="f-preview-resta" class="block font-black text-blue-600">$ 0</span>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg text-center border border-dashed border-gray-200">
+                            <span class="block text-[10px] text-gray-400 font-bold uppercase">Ganancia Estimada</span>
+                            <span id="f-preview-ganancia" class="block font-black text-green-600">$ 0</span>
                         </div>
                     </div>
                 </div>
@@ -179,21 +193,35 @@
                 <select id="r-ano" class="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium shadow-sm outline-none"></select>
             </div>
 
+            <div class="bg-gradient-to-r from-blue-600 to-blue-800 p-4 rounded-xl shadow-md mb-4 text-white">
+                <p class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1 flex items-center gap-1"><i class="ph-fill ph-calendar-check"></i> Total Anual (<span id="r-ano-label"></span>)</p>
+                <p id="r-ganancia-anual" class="text-3xl font-black">$ 0</p>
+                <p class="text-[10px] text-blue-200 mt-1">Suma de ganancias netas de todo el año.</p>
+            </div>
+
+            <h3 class="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center gap-1"><i class="ph-fill ph-calendar"></i> Balance del Mes</h3>
             <div class="grid grid-cols-2 gap-3 mb-3">
-                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
+                <div class="bg-white border border-gray-100 p-3 rounded-xl text-center shadow-sm">
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-up text-green-500"></i> Ingresos</p>
-                    <p id="r-ingresos" class="text-lg font-black text-gray-800">$ 0</p>
+                    <p id="r-ingresos" class="text-base font-black text-gray-800">$ 0</p>
                 </div>
-                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-down text-red-500"></i> Gastos (Repuestos)</p>
-                    <p id="r-gastos" class="text-lg font-black text-gray-800">$ 0</p>
+                <div class="bg-white border border-gray-100 p-3 rounded-xl text-center shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-down text-red-500"></i> Repuestos</p>
+                    <p id="r-gastos" class="text-base font-black text-gray-800">$ 0</p>
                 </div>
             </div>
 
-            <div class="bg-white border-2 border-blue-100 p-5 rounded-xl text-center shadow-sm">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-1">Ganancia Neta del Mes</p>
-                <p id="r-ganancia" class="text-3xl font-black text-blue-600">$ 0</p>
-                <p class="text-[10px] text-gray-400 mt-2">* Solo cuenta trabajos que estén finalizados (Entregados).</p>
+            <div class="bg-white border-2 border-blue-100 p-4 rounded-xl text-center shadow-sm mb-5">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Ganancia Neta Mensual</p>
+                <p id="r-ganancia" class="text-2xl font-black text-blue-600">$ 0</p>
+            </div>
+
+            <div class="mb-2 flex justify-between items-end">
+                <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1"><i class="ph-fill ph-list-dashes"></i> Detalle de Reparaciones</h3>
+                <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-md font-bold" id="r-count-trabajos">0</span>
+            </div>
+            <div id="r-detalle-lista" class="space-y-3">
+                <!-- Los ítems del historial del mes se renderizan aquí -->
             </div>
         </div>
     </main>
@@ -350,41 +378,24 @@
     </div>
 
     <script type="module">
-        const manifest = {
-            name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
-            background_color: "#2563EB", theme_color: "#2563EB", orientation: "portrait",
-            icons: [{
-                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Crect x='64' y='24' width='128' height='208' rx='16' fill='%232563EB' stroke='%23ffffff' stroke-width='16'/%3E%3Cline x1='64' y1='56' x2='192' y2='56' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cline x1='64' y1='200' x2='192' y2='200' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M168,96a40,40,0,1,0-40,40A40,40,0,0,0,168,96Z' fill='%23ffffff' opacity='0.8'/%3E%3Cline x1='120' y1='112' x2='96' y2='136' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E",
-                sizes: "192x192 512x512", type: "image/svg+xml"
-            }]
-        };
-        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
-        document.head.insertAdjacentHTML('beforeend', `<link rel="apple-touch-icon" href="${manifest.icons[0].src}">`);
-
-        if ('serviceWorker' in navigator) {
-            const swCode = `self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('activate', e => e.waitUntil(clients.claim())); self.addEventListener('fetch', e => {});`;
-            navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode], {type: 'application/javascript'}))).catch(()=>console.log('SW Error'));
+        // Helper: Custom Toast Notifier
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-warning-circle'} text-lg"></i> ${message}`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-        import { getFirestore, enableIndexedDbPersistence, collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-
-        const myFirebaseConfig = {
-            apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
-            authDomain: "fixlew.firebaseapp.com",
-            projectId: "fixlew",
-            storageBucket: "fixlew.firebasestorage.app",
-            messagingSenderId: "545562287611",
-            appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
-        };
-
-        let app, auth, db, currentUserId = null;
-        const appId = "fixlew_app"; 
-        let tickets = [], inventory = []; 
-        let currentEditingId = null, currentStatusFilter = 'activo';
-        let currentBase64Photo = null, currentTicketBase64Photo = null;
-
+        // Window exposed utility functions
+        window.alert = (msg) => showToast(msg, 'error');
+        
         function parseMoneyInput(val) {
             if (!val) return 0;
             let cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
@@ -401,32 +412,73 @@
             setTimeout(() => splash.style.display = 'none', 500);
         }
 
+        // PWA Manifest setup
+        const manifest = {
+            name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
+            background_color: "#2563EB", theme_color: "#2563EB", orientation: "portrait",
+            icons: [{
+                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Crect x='64' y='24' width='128' height='208' rx='16' fill='%232563EB' stroke='%23ffffff' stroke-width='16'/%3E%3Cline x1='64' y1='56' x2='192' y2='56' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cline x1='64' y1='200' x2='192' y2='200' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M168,96a40,40,0,1,0-40,40A40,40,0,0,0,168,96Z' fill='%23ffffff' opacity='0.8'/%3E%3Cline x1='120' y1='112' x2='96' y2='136' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E",
+                sizes: "192x192 512x512", type: "image/svg+xml"
+            }]
+        };
+        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
+            authDomain: "fixlew.firebaseapp.com",
+            projectId: "fixlew",
+            storageBucket: "fixlew.firebasestorage.app",
+            messagingSenderId: "545562287611",
+            appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
+        };
+
+        let app, auth, db, currentUserId = null;
+        const appId = "fixlew_app"; 
+        let tickets = [], inventory = []; 
+        let currentEditingId = null, currentStatusFilter = 'activo';
+        let currentBase64Photo = null, currentTicketBase64Photo = null;
+
         try {
             app = initializeApp(myFirebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-
             enableIndexedDbPersistence(db).catch(err => console.log("Offline Persistence Error:", err.code));
 
-            signInAnonymously(auth).catch((error) => {
-                console.error("Auth error:", error);
-                document.getElementById('config-alert').classList.remove('hidden');
-                document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error';
-                document.getElementById('splash-text').innerText = "Error de Autenticación";
-                setTimeout(removeSplash, 1500);
-            });
+            async function initAuth() {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                        return;
+                    } catch (error) {
+                        console.warn("Token falló, recurriendo a anónimo:", error);
+                    }
+                }
+                
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    showToast("Error de conexión. Revisa los permisos de Firebase.", "error");
+                    document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error';
+                    document.getElementById('splash-text').innerText = "Error de Autenticación";
+                    setTimeout(removeSplash, 1500);
+                }
+            }
+
+            initAuth();
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     currentUserId = user.uid;
-                    document.getElementById('config-alert').classList.add('hidden');
                     document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> Conectado';
                     loadTickets(); 
                     loadInventory(); 
                     removeSplash();
                 }
             });
-
         } catch (error) {
             console.error("Firebase Init Error:", error);
             removeSplash();
@@ -450,11 +502,14 @@
 
         function loadTickets() {
             const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-            const q = query(ticketsRef, orderBy('createdAt', 'desc'));
-
-            onSnapshot(q, (snapshot) => {
-                tickets = [];
-                snapshot.forEach((doc) => tickets.push({ id: doc.id, ...doc.data() }));
+            // Nota: Ordenamos en memoria para evitar errores de índices faltantes en Firebase
+            onSnapshot(query(ticketsRef), (snapshot) => {
+                let tempTickets = [];
+                snapshot.forEach((doc) => tempTickets.push({ id: doc.id, ...doc.data() }));
+                
+                // Ordenar por fecha de creación descendente
+                tickets = tempTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
                 renderTickets();
                 calculateSummary();
             }, (error) => console.error("Error tickets:", error));
@@ -496,7 +551,7 @@
 
         function setupPhotoCompressor(inputId, previewId, placeholderId, containerId, callback) {
             const inputEl = document.getElementById(inputId);
-            if (!inputEl) return; // Protección contra errores de nulos
+            if (!inputEl) return;
             
             inputEl.addEventListener('change', function(e) {
                 const file = e.target.files[0];
@@ -531,10 +586,21 @@
             });
         }
 
-        // Activar la compresión para ambas cámaras (Ticket e Inventario)
         setupPhotoCompressor('f-photo', 'f-photo-preview', 'f-photo-placeholder', 'f-photo-preview-container', (b64) => currentTicketBase64Photo = b64);
         setupPhotoCompressor('i-photo', 'i-photo-preview', 'i-photo-placeholder', 'i-photo-preview-container', (b64) => currentBase64Photo = b64);
 
+        // Previsualización en vivo para Nuevo Ingreso
+        function updateNuevoPreview() {
+            const precio = parseMoneyInput(document.getElementById('f-precio').value);
+            const costo = parseMoneyInput(document.getElementById('f-costo').value);
+            const anticipo = parseMoneyInput(document.getElementById('f-anticipo').value);
+            
+            document.getElementById('f-preview-resta').innerText = formatMoney(Math.max(0, precio - anticipo));
+            document.getElementById('f-preview-ganancia').innerText = formatMoney(precio - costo);
+        }
+        ['f-precio', 'f-costo', 'f-anticipo'].forEach(id => document.getElementById(id).addEventListener('input', updateNuevoPreview));
+
+        // Guardar Nuevo Ticket
         document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit-nuevo');
@@ -554,8 +620,8 @@
                     problema: document.getElementById('f-problema').value,
                     accesorios: document.getElementById('f-accesorios').value,
                     precio: parseMoneyInput(document.getElementById('f-precio').value),
+                    costoRepuestos: parseMoneyInput(document.getElementById('f-costo').value),
                     anticipo: parseMoneyInput(document.getElementById('f-anticipo').value),
-                    costoRepuestos: 0,
                     pagadoTotalmente: false,
                     status: 'activo',
                     photoBase64: currentTicketBase64Photo || "",
@@ -567,20 +633,20 @@
                 await Promise.race([
                     addDoc(ticketsRef, newTicket),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
-                ]).catch(err => {
-                    if(err.message !== "offline-save") throw err;
-                });
+                ]).catch(err => { if(err.message !== "offline-save") throw err; });
                 
                 e.target.reset();
                 currentTicketBase64Photo = null;
                 document.getElementById('f-photo-placeholder').classList.remove('hidden');
                 document.getElementById('f-photo-preview-container').classList.add('hidden');
                 document.getElementById('f-photo-preview-container').classList.remove('flex');
+                updateNuevoPreview(); // reset preview
                 
+                showToast("Ingresado exitosamente");
                 switchTab('activos');
             } catch (err) {
                 console.error(err);
-                alert("Error al guardar. Verifica los datos.");
+                showToast("Error al guardar.", "error");
             } finally {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
@@ -652,6 +718,14 @@
             document.getElementById('m-resta').innerText = formatMoney(Math.max(0, p - a));
         }
 
+        // Cambio automático a 'entregado'
+        document.getElementById('m-pagado').addEventListener('change', (e) => {
+            if (e.target.checked && currentStatusFilter !== 'entregado') {
+                setModalStatus('entregado');
+                showToast("Estado cambiado a Entregado");
+            }
+        });
+
         document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
             if (!currentEditingId) return;
             const btn = e.currentTarget;
@@ -660,16 +734,30 @@
 
             try {
                 const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
-                await updateDoc(docRef, {
+                const ticketActual = tickets.find(t => t.id === currentEditingId);
+                
+                const updates = {
                     costoRepuestos: parseMoneyInput(document.getElementById('m-costo').value),
                     precio: parseMoneyInput(document.getElementById('m-precio').value),
                     anticipo: parseMoneyInput(document.getElementById('m-anticipo').value),
                     pagadoTotalmente: document.getElementById('m-pagado').checked,
                     status: currentStatusFilter
-                });
+                };
+                
+                // Si se marca como entregado y no tenía fecha, registrar la fecha de finalización/entrega
+                if (currentStatusFilter === 'entregado' && ticketActual && !ticketActual.deliveredAt) {
+                    updates.deliveredAt = new Date().toISOString();
+                }
+
+                await Promise.race([
+                    updateDoc(docRef, updates),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
+                ]).catch(err => { if(err.message !== "offline-save") throw err; });
+                
+                showToast("Cambios guardados");
                 closeModal();
             } catch (err) {
-                console.error(err); alert("Error al guardar los cambios.");
+                console.error(err); showToast("Error al guardar los cambios.", "error");
             } finally {
                 btn.innerHTML = originalText; btn.disabled = false;
             }
@@ -677,8 +765,11 @@
 
         function loadInventory() {
             const inventoryRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory');
-            onSnapshot(query(inventoryRef, orderBy('name', 'asc')), (snapshot) => {
-                inventory = []; snapshot.forEach((doc) => inventory.push({ id: doc.id, ...doc.data() }));
+            onSnapshot(query(inventoryRef), (snapshot) => {
+                let tempInv = []; 
+                snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
+                // Sort by name in JS
+                inventory = tempInv.sort((a, b) => a.name.localeCompare(b.name));
                 renderInventory();
             });
         }
@@ -704,24 +795,31 @@
 
         document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
             const name = document.getElementById('i-name').value.trim();
-            if(!name) return alert("Ingresa el nombre del repuesto.");
+            if(!name) return showToast("Ingresa el nombre del repuesto.", "error");
 
             const btn = e.currentTarget; const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
 
             try {
-                await addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory'), {
-                    name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0,
-                    cost: parseMoneyInput(document.getElementById('i-cost').value),
-                    photoBase64: currentBase64Photo || "", dateAdded: new Date().toISOString()
-                });
+                await Promise.race([
+                    addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory'), {
+                        name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0,
+                        cost: parseMoneyInput(document.getElementById('i-cost').value),
+                        photoBase64: currentBase64Photo || "", dateAdded: new Date().toISOString()
+                    }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
+                ]).catch(err => { if(err.message !== "offline-save") throw err; });
+                
+                showToast("Agregado al stock");
                 closeInventoryModal();
             } catch (err) { console.error(err); } finally { btn.innerHTML = originalText; btn.disabled = false; }
         });
 
         window.updateStock = async (id, step) => {
             const item = inventory.find(i => i.id === id); if(!item) return;
-            try { await updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); } catch(e) {}
+            try { 
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
+            } catch(e) { console.error(e); }
         };
 
         function renderInventory() {
@@ -753,26 +851,75 @@
             const currentYear = new Date().getFullYear();
             anoSelect.innerHTML = [currentYear-1, currentYear, currentYear+1].map(y => `<option value="${y}">${y}</option>`).join('');
             mesSelect.value = new Date().getMonth(); anoSelect.value = currentYear;
-            mesSelect.addEventListener('change', calculateSummary); anoSelect.addEventListener('change', calculateSummary);
+            
+            mesSelect.addEventListener('change', calculateSummary); 
+            anoSelect.addEventListener('change', calculateSummary);
         }
 
         function calculateSummary() {
             const mesObj = parseInt(document.getElementById('r-mes').value);
             const anoObj = parseInt(document.getElementById('r-ano').value);
-            let totalIngresos = 0, totalGastos = 0;
+            document.getElementById('r-ano-label').innerText = anoObj;
 
-            tickets.forEach(t => {
-                const date = new Date(t.createdAt);
-                // SOLO sumar los trabajos que ya están "entregados"
-                if (t.status === 'entregado' && date.getMonth() === mesObj && date.getFullYear() === anoObj) {
-                    totalGastos += (t.costoRepuestos || 0);
-                    totalIngresos += t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0);
+            let totalIngresosMes = 0, totalGastosMes = 0;
+            let totalGananciaAnual = 0;
+            let detalleHTML = '';
+            let trabajosMesCount = 0;
+
+            // Filtrar y ordenar los entregados por fecha de finalización (descendente)
+            const entregados = tickets.filter(t => t.status === 'entregado');
+            entregados.sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
+
+            entregados.forEach(t => {
+                const fechaFin = new Date(t.deliveredAt || t.createdAt);
+                const tMes = fechaFin.getMonth();
+                const tAno = fechaFin.getFullYear();
+                
+                const ingreso = t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0);
+                const gasto = (t.costoRepuestos || 0);
+                const ganancia = ingreso - gasto;
+
+                if (tAno === anoObj) {
+                    totalGananciaAnual += ganancia;
+                }
+
+                if (tMes === mesObj && tAno === anoObj) {
+                    totalGastosMes += gasto;
+                    totalIngresosMes += ingreso;
+                    trabajosMesCount++;
+                    
+                    const fechaRecepcionStr = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
+                    const fechaFinStr = fechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
+
+                    detalleHTML += `
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                            <div class="flex justify-between items-start border-b border-gray-50 pb-2 pl-2">
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h4>
+                                    <p class="text-[11px] text-gray-500">${t.tipo} - ${t.marca} ${t.modelo}</p>
+                                </div>
+                                <div class="text-right text-sm">
+                                    <span class="font-black text-green-600 block">${formatMoney(ganancia)}</span>
+                                    <span class="text-[9px] text-gray-400 uppercase tracking-wide">Ganancia Neta</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] text-gray-500 pl-2">
+                                <div class="flex items-center gap-1"><i class="ph ph-download-simple text-blue-400"></i> Recibido: ${fechaRecepcionStr}</div>
+                                <div class="flex items-center gap-1"><i class="ph ph-check-circle text-green-400"></i> Terminado: ${fechaFinStr}</div>
+                            </div>
+                        </div>
+                    `;
                 }
             });
 
-            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresos);
-            document.getElementById('r-gastos').innerText = formatMoney(totalGastos);
-            document.getElementById('r-ganancia').innerText = formatMoney(totalIngresos - totalGastos);
+            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresosMes);
+            document.getElementById('r-gastos').innerText = formatMoney(totalGastosMes);
+            document.getElementById('r-ganancia').innerText = formatMoney(totalIngresosMes - totalGastosMes);
+            document.getElementById('r-ganancia-anual').innerText = formatMoney(totalGananciaAnual);
+            
+            document.getElementById('r-count-trabajos').innerText = trabajosMesCount;
+            document.getElementById('r-detalle-lista').innerHTML = detalleHTML || '<div class="text-center py-8 text-gray-400 text-sm"><i class="ph ph-folder-open text-4xl mb-2 text-gray-300"></i><p>No hay trabajos entregados este mes</p></div>';
         }
 
         populateSummarySelectors();
