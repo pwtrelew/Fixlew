@@ -37,17 +37,60 @@
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast-success { background: #10B981; }
         .toast-error { background: #EF4444; }
+
+        /* Clases para el Long Press (Toque Prolongado) */
+        .select-none { -webkit-user-select: none; user-select: none; }
+        
+        .ticket-actions { opacity: 0; transform: translateX(10px); pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .show-actions .ticket-actions { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        
+        .inv-actions { opacity: 0; transform: translateY(-5px); pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .show-actions .inv-actions { opacity: 1; transform: translateY(0); pointer-events: auto; }
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden text-gray-800">
+<body class="flex flex-col h-screen overflow-hidden text-gray-800 relative">
 
     <div id="toast-container"></div>
+
+    <!-- Cuadro de Diálogo Personalizado (Reemplazo de confirm) -->
+    <div id="custom-confirm" class="fixed inset-0 bg-black/60 z-[99999] hidden opacity-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none">
+        <div id="custom-confirm-content" class="bg-white rounded-2xl p-5 w-11/12 max-w-sm transform scale-95 opacity-0 transition-all duration-200 shadow-2xl pointer-events-auto">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                    <i class="ph-fill ph-warning-circle text-2xl"></i>
+                </div>
+                <h3 id="c-title" class="text-lg font-black text-gray-800"></h3>
+            </div>
+            <p id="c-message" class="text-sm text-gray-600 mb-6 pl-13"></p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirm()" class="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 active:bg-gray-200 transition">Cancelar</button>
+                <button onclick="acceptConfirm()" class="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 shadow-md shadow-red-600/30 active:bg-red-700 transition">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cartel de Error de Reglas de Firebase -->
+    <div id="firebase-rules-warning" class="hidden bg-red-600 text-white p-5 shadow-2xl text-sm text-center fixed top-0 w-full z-[10000] flex flex-col items-center">
+        <p class="font-black text-xl mb-2 flex items-center gap-2"><i class="ph-fill ph-warning-circle text-2xl"></i> BASE DE DATOS BLOQUEADA</p>
+        <p class="mb-3 font-medium">Tus datos no se pueden guardar. Ve a tu consola de Firebase > <b>Firestore Database</b> > <b>Reglas</b>, reemplaza todo el texto por esto y dale a "Publicar":</p>
+        <div class="bg-red-900 p-3 rounded-lg text-left text-xs font-mono w-full max-w-md overflow-x-auto shadow-inner relative">
+            <code class="whitespace-pre">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}</code>
+        </div>
+        <button onclick="document.getElementById('firebase-rules-warning').classList.add('hidden')" class="mt-4 bg-white text-red-600 px-4 py-2 rounded-full font-bold shadow-md">Entendido</button>
+    </div>
 
     <div id="splash-screen">
         <i class="ph-fill ph-wrench text-white text-6xl mb-4"></i>
         <h1 class="text-white text-3xl font-black tracking-tight mb-6">Fixlew</h1>
         <div class="spinner"></div>
-        <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando al Taller...</p>
+        <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando a la nube...</p>
     </div>
 
     <header class="bg-blue-600 text-white p-4 shadow-md z-10 shrink-0 pt-safe flex justify-between items-center">
@@ -68,6 +111,7 @@
                 <h2 class="text-lg font-bold text-gray-700">Trabajos en Taller</h2>
                 <span class="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-md" id="count-activos">0</span>
             </div>
+            <p class="text-[10px] text-gray-400 font-medium italic mb-2 text-center">💡 Mantén presionado un trabajo para eliminarlo</p>
             <div id="list-activos" class="space-y-3"></div>
         </div>
 
@@ -124,12 +168,10 @@
                             <label class="block text-xs font-medium text-gray-500 mt-2 mb-1">Foto del Equipo / Estado (Opcional)</label>
                             <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
                                 <input type="file" id="f-photo" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                                
                                 <div id="f-photo-preview-container" class="hidden flex-col items-center justify-center">
                                     <img id="f-photo-preview" class="h-28 object-contain rounded-md shadow-sm mb-2">
                                     <span class="text-xs text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-full">Cambiar foto</span>
                                 </div>
-                                
                                 <div id="f-photo-placeholder" class="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
                                     <i class="ph-fill ph-camera text-3xl mb-1 text-gray-300"></i>
                                     <span class="text-xs font-medium text-gray-500">Toca para tomar foto</span>
@@ -182,10 +224,11 @@
                 </button>
             </div>
             
-            <div class="relative mb-4">
+            <div class="relative mb-2">
                 <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
-                <input type="text" id="search-inventario" placeholder="Buscar repuesto..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white">
+                <input type="text" id="search-inventario" placeholder="Buscar repuesto por nombre..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white">
             </div>
+            <p class="text-[10px] text-gray-400 font-medium italic mb-2 text-center">💡 Mantén presionado un repuesto para editar o borrar</p>
             
             <div id="list-inventario" class="grid grid-cols-2 gap-3 pb-4"></div>
         </div>
@@ -240,7 +283,6 @@
             <i class="ph-fill ph-archive-box text-[22px] mb-0.5"></i>
             <span class="text-[10px] font-medium">Historial</span>
         </button>
-        
         <div class="flex-1 flex justify-center relative top-[-10px]">
             <button onclick="switchTab('nuevo')" id="nav-nuevo" class="bottom-nav-item flex flex-col items-center justify-center text-gray-400 transition">
                 <div class="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.4)] active:scale-[0.95] transition">
@@ -249,7 +291,6 @@
                 <span class="text-[10px] mt-1 font-bold text-blue-600">Nuevo</span>
             </button>
         </div>
-
         <button onclick="switchTab('inventario')" id="nav-inventario" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
             <i class="ph-fill ph-box-cube text-[22px] mb-0.5"></i>
             <span class="text-[10px] font-medium">Stock</span>
@@ -260,10 +301,8 @@
         </button>
     </nav>
 
-    <!-- Modal de Ticket -->
     <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[50] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
         <div id="modalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
-            
             <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
                 <h2 class="text-lg font-black text-gray-800" id="m-title">Ticket #000</h2>
                 <button onclick="closeModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
@@ -272,7 +311,6 @@
             </div>
             
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                
                 <div class="bg-white p-1.5 rounded-lg border flex text-sm text-center shadow-sm font-medium">
                     <button id="btn-status-activo" onclick="setModalStatus('activo')" class="flex-1 py-1.5 rounded-md transition text-gray-500">En Taller</button>
                     <button id="btn-status-entregado" onclick="setModalStatus('entregado')" class="flex-1 py-1.5 rounded-md transition text-gray-500">Entregado</button>
@@ -297,12 +335,10 @@
                         <span class="text-sm text-gray-600">Costo Repuestos ($)</span>
                         <input type="text" inputmode="decimal" id="m-costo" class="w-28 text-right font-bold text-red-600 border rounded px-2 py-1 outline-none focus:border-red-500 bg-red-50">
                     </div>
-                    
                     <div class="flex justify-between items-center border-b pb-2">
                         <span class="text-sm text-gray-600">Precio a Cobrar ($)</span>
                         <input type="text" inputmode="decimal" id="m-precio" class="w-28 text-right font-bold text-gray-800 border rounded px-2 py-1 outline-none bg-gray-50">
                     </div>
-                    
                     <div class="flex justify-between items-center border-b pb-2">
                         <span class="text-sm text-gray-600">Anticipo Dejado ($)</span>
                         <input type="text" inputmode="decimal" id="m-anticipo" class="w-28 text-right font-bold text-green-600 border rounded px-2 py-1 outline-none bg-green-50">
@@ -319,7 +355,6 @@
                     </label>
                 </div>
             </div>
-
             <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <button id="saveModalBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
                     <i class="ph ph-floppy-disk text-lg"></i> Guardar Cambios
@@ -328,10 +363,8 @@
         </div>
     </div>
 
-    <!-- Modal de Inventario -->
     <div id="inventoryModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
         <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
-            
             <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
                 <h2 class="text-lg font-black text-gray-800 flex items-center gap-2" id="inventoryModalTitle"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
                 <button onclick="closeInventoryModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
@@ -358,15 +391,13 @@
                     </div>
 
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Foto del Repuesto (Opcional)</label>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Foto (Opcional)</label>
                         <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
                             <input type="file" id="i-photo" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                            
                             <div id="i-photo-preview-container" class="hidden flex-col items-center justify-center">
                                 <img id="i-photo-preview" class="h-28 object-contain rounded-md shadow-sm mb-2">
                                 <span class="text-xs text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-full">Cambiar foto</span>
                             </div>
-                            
                             <div id="i-photo-placeholder" class="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
                                 <i class="ph-fill ph-camera text-4xl mb-2 text-gray-300"></i>
                                 <span class="text-sm font-medium text-gray-500">Toca para tomar foto</span>
@@ -377,9 +408,6 @@
             </div>
 
             <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button type="button" id="deleteInventoryBtn" onclick="confirmDeleteInventory()" class="hidden bg-red-100 text-red-600 font-bold py-3.5 px-4 rounded-xl shadow-sm active:bg-red-200 active:scale-[0.98] transition flex justify-center items-center w-14">
-                    <i class="ph ph-trash text-lg"></i>
-                </button>
                 <button id="saveInventoryBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
                     <i class="ph ph-plus-circle text-lg"></i> Guardar
                 </button>
@@ -388,23 +416,75 @@
     </div>
 
     <script type="module">
-        // --- 1. Utilidades y Configuración Base ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONEXION LIMPIA AL PROYECTO - FORZADA
+        const firebaseConfig = {
+            apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
+            authDomain: "fixlew.firebaseapp.com",
+            projectId: "fixlew",
+            storageBucket: "fixlew.firebasestorage.app",
+            messagingSenderId: "545562287611",
+            appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
+        };
+
+        let app, auth, db;
+        let tickets = [], inventory = []; 
+        let currentEditingId = null, currentStatusFilter = 'activo';
+        let currentBase64Photo = null, currentTicketBase64Photo = null;
+        let editingInventoryId = null, searchInventoryTerm = ""; 
+        let pressTimer = null, isLongPress = false;
+
+        // Custom Confirm Logic
+        let confirmCallback = null;
+        window.openConfirm = (title, message, callback) => {
+            document.getElementById('c-title').innerText = title;
+            document.getElementById('c-message').innerText = message;
+            confirmCallback = callback;
+            
+            const m = document.getElementById('custom-confirm');
+            const c = document.getElementById('custom-confirm-content');
+            m.classList.remove('hidden');
+            setTimeout(() => { 
+                m.classList.remove('opacity-0'); 
+                c.classList.remove('scale-95', 'opacity-0'); 
+            }, 10);
+        };
+        window.closeConfirm = () => {
+            const m = document.getElementById('custom-confirm');
+            const c = document.getElementById('custom-confirm-content');
+            m.classList.add('opacity-0'); 
+            c.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => { m.classList.add('hidden'); }, 200);
+            confirmCallback = null;
+        };
+        window.acceptConfirm = () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirm();
+        };
+
+        // UI Utilities
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
             toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-warning-circle'} text-lg"></i> ${message}`;
             container.appendChild(toast);
-            
             setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
-        window.alert = (msg) => showToast(msg, 'error'); // Redirigir alertas nativas al Toast
-        
+        function handleFirebaseError(error) {
+            console.error("Firebase Error:", error);
+            if (error.code === 'permission-denied') {
+                document.getElementById('firebase-rules-warning').classList.remove('hidden');
+            } else {
+                showToast("Error de red o permisos", "error");
+            }
+        }
+
         function parseMoneyInput(val) {
             if (!val) return 0;
             let cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
@@ -421,65 +501,32 @@
             setTimeout(() => splash.style.display = 'none', 500);
         }
 
-        const manifest = {
-            name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
-            background_color: "#2563EB", theme_color: "#2563EB", orientation: "portrait",
-            icons: [{
-                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Crect x='64' y='24' width='128' height='208' rx='16' fill='%232563EB' stroke='%23ffffff' stroke-width='16'/%3E%3Cline x1='64' y1='56' x2='192' y2='56' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cline x1='64' y1='200' x2='192' y2='200' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M168,96a40,40,0,1,0-40,40A40,40,0,0,0,168,96Z' fill='%23ffffff' opacity='0.8'/%3E%3Cline x1='120' y1='112' x2='96' y2='136' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E",
-                sizes: "192x192 512x512", type: "image/svg+xml"
-            }]
-        };
-        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/json'}))}">`);
-
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Si el entorno no inyecta configuración, usa la tuya (fixlew)
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
-            authDomain: "fixlew.firebaseapp.com",
-            projectId: "fixlew",
-            storageBucket: "fixlew.firebasestorage.app",
-            messagingSenderId: "545562287611",
-            appId: "1:545562287611:web:e776b29cc3fb37d5e67f5e"
-        };
-
-        let app, auth, db;
-        // Nombre global de tu espacio de datos para que NO se pierda si cambia el ID de usuario anónimo.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'fixlew_taller'; 
-        
-        let tickets = [], inventory = []; 
-        let currentEditingId = null, currentStatusFilter = 'activo';
-        let currentBase64Photo = null, currentTicketBase64Photo = null;
-        let editingInventoryId = null; 
-        let searchInventoryTerm = ""; 
-        let inlineDeleteConfirmId = null; 
-        let inlineDeleteTimer = null; 
-
+        // INIT FIREBASE
         try {
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
-            enableIndexedDbPersistence(db).catch(err => console.log("Offline Persistence Error:", err.code));
-
-            async function initAuth() {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    try { await signInWithCustomToken(auth, __initial_auth_token); return; } 
-                    catch (error) { console.warn("Token falló, recurriendo a anónimo"); }
-                }
+            
+            signInAnonymously(auth).catch((error) => {
+                console.error("Auth Error:", error);
+                document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-warning-circle text-red-300"></i> Error de Auth';
                 
-                try {
-                    await signInAnonymously(auth);
-                } catch (error) {
-                    showToast("Error de conexión. Verifica la Autenticación Anónima en tu Firebase.", "error");
-                    document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error';
-                    document.getElementById('splash-text').innerText = "Error de Autenticación";
-                    setTimeout(removeSplash, 1500);
+                let errorMsg = '<span class="text-red-300 font-bold">Error: No se pudo conectar a Firebase</span>';
+                
+                // Si el error es por el dominio, mostramos qué dominio hay que agregar
+                if (error.code === 'auth/unauthorized-domain') {
+                    errorMsg = `<div class="bg-red-900/50 p-3 rounded-lg mt-2 text-center text-xs text-white max-w-xs border border-red-500">
+                        <b>Firebase bloqueó este entorno.</b><br><br>
+                        Ve a Firebase > Authentication > <b>Configuración</b> > <b>Dominios autorizados</b>.<br>
+                        Agrega exactamente este dominio:<br>
+                        <b class="text-yellow-300 text-sm break-all">${window.location.hostname}</b>
+                    </div>`;
                 }
-            }
 
-            initAuth();
+                document.getElementById('splash-text').innerHTML = errorMsg;
+                setTimeout(removeSplash, 6000); // Da tiempo a leer el error
+                showToast("Error de conexión: " + error.code, "error");
+            });
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -490,7 +537,6 @@
                 }
             });
         } catch (error) {
-            console.error("Firebase Init Error:", error);
             removeSplash();
         }
 
@@ -500,9 +546,7 @@
                 btn.classList.remove('text-blue-600', 'active');
                 if(btn.id !== 'nav-nuevo') btn.classList.add('text-gray-400');
             });
-            
             document.getElementById(`tab-${tabName}`).classList.add('active');
-            
             if(tabName !== 'nuevo') {
                 const activeBtn = document.getElementById(`nav-${tabName}`);
                 activeBtn.classList.remove('text-gray-400');
@@ -510,20 +554,51 @@
             }
         };
 
-        // ATENCIÓN: Cambiamos la ruta a "public/data" para que el taller sincronice sin depender de la sesión anónima que se reinicia
+        // Touch & Long Press Logic
+        window.startPress = (el) => {
+            isLongPress = false;
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                document.querySelectorAll('.show-actions').forEach(e => e.classList.remove('show-actions')); // Hide others
+                el.classList.add('show-actions');
+                if (navigator.vibrate) navigator.vibrate(50);
+            }, 500);
+        };
+        window.cancelPress = () => clearTimeout(pressTimer);
+        
+        // Hide actions when clicking outside
+        document.addEventListener('pointerdown', (e) => {
+            if (!e.target.closest('.show-actions')) {
+                document.querySelectorAll('.show-actions').forEach(el => el.classList.remove('show-actions'));
+            }
+        });
+
+        // --- TICKETS ---
         function loadTickets() {
-            const ticketsRef = collection(db, 'artifacts', appId, 'public', 'data', 'tickets');
-            onSnapshot(query(ticketsRef), (snapshot) => {
+            onSnapshot(collection(db, 'tickets'), (snapshot) => {
                 let tempTickets = [];
                 snapshot.forEach((doc) => tempTickets.push({ id: doc.id, ...doc.data() }));
                 tickets = tempTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                 renderTickets();
                 calculateSummary();
-            }, (error) => {
-                console.error("Error tickets:", error);
-                showToast("Error al cargar trabajos", "error");
-            });
+            }, handleFirebaseError);
         }
+
+        window.handleTicketClick = (el, id, event) => {
+            if (isLongPress) { isLongPress = false; event.preventDefault(); return; }
+            if (event.target.closest('.action-btn')) return; // Ignore click if touching buttons
+            openModal(id);
+        };
+
+        window.deleteTicket = (id, event) => {
+            event.stopPropagation(); // prevent opening modal
+            openConfirm('Eliminar Orden', '¿Estás seguro de que deseas eliminar este trabajo? Esta acción no se puede deshacer.', async () => {
+                try {
+                    await deleteDoc(doc(db, 'tickets', id));
+                    showToast('Orden eliminada', 'success');
+                } catch(e) { handleFirebaseError(e); }
+            });
+        };
 
         function renderTickets() {
             const listActivos = document.getElementById('list-activos');
@@ -535,21 +610,28 @@
                 const ticketNum = t.ticketNumber ? String(t.ticketNumber).padStart(3, '0') : '000';
                 
                 const card = `
-                    <div onclick="openModal('${t.id}')" class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition cursor-pointer">
-                        <div class="flex items-center gap-4">
-                            <div class="bg-blue-50 text-blue-600 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">${ticketNum}</div>
-                            <div>
-                                <h3 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h3>
-                                <p class="text-xs text-gray-500 mt-0.5">${t.marca} ${t.modelo}</p>
+                    <div class="relative bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 overflow-hidden select-none"
+                         onpointerdown="startPress(this)" onpointerup="cancelPress()" onpointerleave="cancelPress()" onpointercancel="cancelPress()" 
+                         onclick="handleTicketClick(this, '${t.id}', event)">
+                        <div class="flex items-center justify-between transition cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <div class="bg-blue-50 text-blue-600 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">${ticketNum}</div>
+                                <div>
+                                    <h3 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h3>
+                                    <p class="text-xs text-gray-500 mt-0.5">${t.marca} ${t.modelo}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">${date}</span>
+                                <div class="mt-1">${t.status === 'activo' ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full inline-block shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>' : '<i class="ph-fill ph-check-circle text-gray-300 text-lg"></i>'}</div>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">${date}</span>
-                            <div class="mt-1">${t.status === 'activo' ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full inline-block shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>' : '<i class="ph-fill ph-check-circle text-gray-300 text-lg"></i>'}</div>
+                        <div class="ticket-actions absolute top-0 right-0 h-full bg-white/95 backdrop-blur-sm border-l border-gray-100 flex items-center px-4 shadow-[-5px_0_15px_rgba(0,0,0,0.05)] z-10 rounded-r-xl">
+                             <button onclick="deleteTicket('${t.id}', event)" class="action-btn w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition">
+                                 <i class="ph-fill ph-trash text-lg"></i>
+                             </button>
                         </div>
-                    </div>
-                `;
-
+                    </div>`;
                 if (t.status === 'activo') { activosHTML += card; activosCount++; }
                 else { historialHTML += card; }
             });
@@ -559,33 +641,24 @@
             document.getElementById('count-activos').innerText = activosCount;
         }
 
-        // Compresor de fotos (Ticket e Inventario)
         function setupPhotoCompressor(inputId, previewId, placeholderId, containerId, callback) {
             const inputEl = document.getElementById(inputId);
             if (!inputEl) return;
-            
             inputEl.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-
+                const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        const MAX_SIZE = 600; 
-                        let width = img.width; let height = img.height;
-
+                        const MAX_SIZE = 600; let width = img.width; let height = img.height;
                         if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
                         else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-
                         canvas.width = width; canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-
                         const base64Str = canvas.toDataURL('image/jpeg', 0.6);
                         callback(base64Str);
-                        
                         document.getElementById(placeholderId).classList.add('hidden');
                         const preview = document.getElementById(containerId);
                         preview.classList.remove('hidden'); preview.classList.add('flex');
@@ -596,16 +669,13 @@
                 reader.readAsDataURL(file);
             });
         }
-
         setupPhotoCompressor('f-photo', 'f-photo-preview', 'f-photo-placeholder', 'f-photo-preview-container', (b64) => currentTicketBase64Photo = b64);
         setupPhotoCompressor('i-photo', 'i-photo-preview', 'i-photo-placeholder', 'i-photo-preview-container', (b64) => currentBase64Photo = b64);
 
-        // Previsualizar Ganancia en Nuevo Ingreso
         function updateNuevoPreview() {
             const precio = parseMoneyInput(document.getElementById('f-precio').value);
             const costo = parseMoneyInput(document.getElementById('f-costo').value);
             const anticipo = parseMoneyInput(document.getElementById('f-anticipo').value);
-            
             document.getElementById('f-preview-resta').innerText = formatMoney(Math.max(0, precio - anticipo));
             document.getElementById('f-preview-ganancia').innerText = formatMoney(precio - costo);
         }
@@ -619,7 +689,6 @@
 
             try {
                 const lastTicket = tickets.reduce((max, t) => (t.ticketNumber > max ? t.ticketNumber : max), 0);
-                
                 const newTicket = {
                     ticketNumber: lastTicket + 1, cliente: document.getElementById('f-nombre').value,
                     tipo: document.getElementById('f-tipo').value, marca: document.getElementById('f-marca').value,
@@ -632,10 +701,9 @@
                     createdAt: new Date().toISOString()
                 };
 
-                await Promise.race([
-                    addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tickets'), newTicket),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
-                ]).catch(err => { if(err.message !== "offline-save") throw err; });
+                const savePromise = addDoc(collection(db, 'tickets'), newTicket);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+                await Promise.race([savePromise, timeoutPromise]);
                 
                 e.target.reset(); currentTicketBase64Photo = null;
                 document.getElementById('f-photo-placeholder').classList.remove('hidden');
@@ -645,14 +713,13 @@
                 
                 showToast("Ingresado exitosamente"); switchTab('activos');
             } catch (err) {
-                console.error(err); showToast("Error al guardar.", "error");
+                if (err.message === 'timeout') showToast("Error: La nube tardó en responder.", "error");
+                else handleFirebaseError(err);
             } finally { btn.innerHTML = originalHtml; btn.disabled = false; }
         });
 
         window.openModal = (id) => {
-            const ticket = tickets.find(t => t.id === id);
-            if (!ticket) return;
-            
+            const ticket = tickets.find(t => t.id === id); if (!ticket) return;
             currentEditingId = id; currentStatusFilter = ticket.status;
             
             document.getElementById('m-title').innerText = `Ticket #${String(ticket.ticketNumber || 0).padStart(3, '0')}`;
@@ -662,10 +729,8 @@
             document.getElementById('m-fecha').innerText = new Date(ticket.createdAt).toLocaleDateString();
             
             const photoContainer = document.getElementById('m-photo-container');
-            const photoImg = document.getElementById('m-photo');
-            if(ticket.photoBase64) {
-                photoImg.src = ticket.photoBase64; photoContainer.classList.remove('hidden');
-            } else { photoContainer.classList.add('hidden'); }
+            if(ticket.photoBase64) { document.getElementById('m-photo').src = ticket.photoBase64; photoContainer.classList.remove('hidden'); } 
+            else { photoContainer.classList.add('hidden'); }
 
             document.getElementById('m-costo').value = ticket.costoRepuestos || 0;
             document.getElementById('m-precio').value = ticket.precio || 0;
@@ -675,28 +740,21 @@
             updateRestaModal(); updateStatusButtons();
             ['m-precio', 'm-anticipo', 'm-costo'].forEach(i => document.getElementById(i).oninput = updateRestaModal);
 
-            const modal = document.getElementById('ticketModal');
-            const content = document.getElementById('modalContent');
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
+            const m = document.getElementById('ticketModal'); const c = document.getElementById('modalContent');
+            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
         };
 
         window.closeModal = () => {
-            const modal = document.getElementById('ticketModal');
-            const content = document.getElementById('modalContent');
-            modal.classList.add('opacity-0'); content.classList.add('translate-y-full');
-            setTimeout(() => modal.classList.add('hidden'), 300); currentEditingId = null;
+            const m = document.getElementById('ticketModal'); const c = document.getElementById('modalContent');
+            m.classList.add('opacity-0'); c.classList.add('translate-y-full');
+            setTimeout(() => m.classList.add('hidden'), 300); currentEditingId = null;
         };
 
-        window.setModalStatus = (status) => {
-            currentStatusFilter = status; updateStatusButtons();
-        };
+        window.setModalStatus = (status) => { currentStatusFilter = status; updateStatusButtons(); };
 
         function updateStatusButtons() {
-            const btnAct = document.getElementById('btn-status-activo');
-            const btnEnt = document.getElementById('btn-status-entregado');
-            btnAct.className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'activo' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400'}`;
-            btnEnt.className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'entregado' ? 'bg-gray-200 text-gray-800 shadow-sm' : 'text-gray-400'}`;
+            document.getElementById('btn-status-activo').className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'activo' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400'}`;
+            document.getElementById('btn-status-entregado').className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'entregado' ? 'bg-gray-200 text-gray-800 shadow-sm' : 'text-gray-400'}`;
         }
 
         function updateRestaModal() {
@@ -707,20 +765,18 @@
 
         document.getElementById('m-pagado').addEventListener('change', (e) => {
             if (e.target.checked && currentStatusFilter !== 'entregado') {
-                setModalStatus('entregado');
-                showToast("Estado cambiado a Entregado");
+                setModalStatus('entregado'); showToast("Cambiado a Entregado automáticamente");
             }
         });
 
         document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
             if (!currentEditingId) return;
-            const btn = e.currentTarget; const originalText = btn.innerHTML;
+            const btn = e.currentTarget; const text = btn.innerHTML;
             btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', currentEditingId);
-                const ticketActual = tickets.find(t => t.id === currentEditingId);
-                
+                const docRef = doc(db, 'tickets', currentEditingId);
+                const tActual = tickets.find(t => t.id === currentEditingId);
                 const updates = {
                     costoRepuestos: parseMoneyInput(document.getElementById('m-costo').value),
                     precio: parseMoneyInput(document.getElementById('m-precio').value),
@@ -728,334 +784,174 @@
                     pagadoTotalmente: document.getElementById('m-pagado').checked,
                     status: currentStatusFilter
                 };
-                
-                if (currentStatusFilter === 'entregado' && ticketActual && !ticketActual.deliveredAt) {
-                    updates.deliveredAt = new Date().toISOString();
-                }
+                if (currentStatusFilter === 'entregado' && tActual && !tActual.deliveredAt) { updates.deliveredAt = new Date().toISOString(); }
 
-                await Promise.race([
-                    updateDoc(docRef, updates),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
-                ]).catch(err => { if(err.message !== "offline-save") throw err; });
-                
+                const savePromise = updateDoc(docRef, updates);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+                await Promise.race([savePromise, timeoutPromise]);
+
                 showToast("Cambios guardados"); closeModal();
-            } catch (err) {
-                console.error(err); showToast("Error al guardar los cambios.", "error");
-            } finally { btn.innerHTML = originalText; btn.disabled = false; }
+            } catch (err) { 
+                if (err.message === 'timeout') showToast("Error de conexión.", "error");
+                else handleFirebaseError(err); 
+            } finally { btn.innerHTML = text; btn.disabled = false; }
         });
 
+        // --- INVENTARIO ---
         function loadInventory() {
-            const inventoryRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
-            onSnapshot(query(inventoryRef), (snapshot) => {
-                let tempInv = []; 
-                snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
-                inventory = tempInv.sort((a, b) => a.name.localeCompare(b.name));
-                renderInventory();
-            });
+            onSnapshot(collection(db, 'inventory'), (snapshot) => {
+                let tempInv = []; snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
+                inventory = tempInv.sort((a, b) => a.name.localeCompare(b.name)); renderInventory();
+            }, handleFirebaseError);
         }
 
-        document.getElementById('search-inventario').addEventListener('input', (e) => {
-            searchInventoryTerm = e.target.value.toLowerCase();
-            renderInventory();
-        });
+        document.getElementById('search-inventario').addEventListener('input', (e) => { searchInventoryTerm = e.target.value.toLowerCase(); renderInventory(); });
 
-        window.confirmInlineDelete = async (id, event) => {
-            if (event) event.stopPropagation();
-            
-            if (inlineDeleteConfirmId !== id) {
-                inlineDeleteConfirmId = id;
-                renderInventory(); 
-                
-                clearTimeout(inlineDeleteTimer);
-                inlineDeleteTimer = setTimeout(() => {
-                    if (inlineDeleteConfirmId === id) {
-                        inlineDeleteConfirmId = null;
-                        renderInventory();
-                    }
-                }, 3000);
-            } else {
-                clearTimeout(inlineDeleteTimer);
-                inlineDeleteConfirmId = null;
-                
+        window.deleteInventoryItem = (id, event) => {
+            event.stopPropagation();
+            openConfirm('Eliminar Repuesto', '¿Estás seguro de que deseas eliminar este repuesto del stock?', async () => {
                 try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-                    showToast("Repuesto eliminado");
-                } catch(e) {
-                    console.error(e);
-                    showToast("Error al eliminar", "error");
-                }
-            }
+                    await deleteDoc(doc(db, 'inventory', id));
+                    showToast("Repuesto eliminado", 'success');
+                } catch(e) { handleFirebaseError(e); }
+            });
+        };
+
+        window.handleInvClick = (el, event) => {
+            if (isLongPress) { isLongPress = false; event.preventDefault(); }
+            // Do nothing on short tap for inventory card itself, buttons handle their own clicks
         };
 
         function renderInventory() {
             let html = '';
-            
-            const filteredInventory = inventory.filter(item => 
-                item.name.toLowerCase().includes(searchInventoryTerm)
-            );
-
+            const filteredInventory = inventory.filter(item => item.name.toLowerCase().includes(searchInventoryTerm));
             filteredInventory.forEach(item => {
-                const photoHtml = item.photoBase64 ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-xl border-b border-gray-100">` : `<div class="w-full h-28 bg-gray-100 flex flex-col items-center justify-center rounded-t-xl border-b border-gray-100 text-gray-400"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
-                
-                const isConfirming = inlineDeleteConfirmId === item.id;
-                
+                const photo = item.photoBase64 ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-xl border-b border-gray-100 pointer-events-none">` : `<div class="w-full h-28 bg-gray-100 flex flex-col items-center justify-center rounded-t-xl border-b border-gray-100 text-gray-400 pointer-events-none"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
                 html += `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group">
-                        ${photoHtml}
-                        
-                        <div class="absolute top-2 right-2 flex gap-1.5 z-10">
-                            <button onclick="confirmInlineDelete('${item.id}', event)" class="w-8 h-8 ${isConfirming ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-500 border-gray-200'} backdrop-blur rounded-full flex items-center justify-center shadow-sm border active:scale-95 transition">
-                                <i class="ph-fill ${isConfirming ? 'ph-warning' : 'ph-trash'} text-sm"></i>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group select-none"
+                         onpointerdown="startPress(this)" onpointerup="cancelPress()" onpointerleave="cancelPress()" onpointercancel="cancelPress()" onclick="handleInvClick(this, event)">
+                        ${photo}
+                        <div class="inv-actions absolute top-2 right-2 flex gap-1.5 z-10">
+                            <button onclick="deleteInventoryItem('${item.id}', event)" class="action-btn w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition">
+                                <i class="ph-fill ph-trash text-sm"></i>
                             </button>
-                            <button onclick="openEditInventoryModal('${item.id}')" class="w-8 h-8 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-500 shadow-sm border border-gray-200 active:scale-95 transition">
+                            <button onclick="openEditInventoryModal('${item.id}'); event.stopPropagation();" class="action-btn w-8 h-8 bg-white/95 text-gray-600 rounded-full flex items-center justify-center shadow-md border border-gray-200 active:scale-95 transition">
                                 <i class="ph-fill ph-pencil-simple text-sm"></i>
                             </button>
                         </div>
-
-                        <div class="p-3 flex-1 flex flex-col">
+                        <div class="p-3 flex-1 flex flex-col pointer-events-none">
                             <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${item.name}</h3>
                             <p class="text-[11px] text-green-600 font-bold mt-1 bg-green-50 self-start px-2 py-0.5 rounded">${formatMoney(item.cost)}</p>
-                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-gray-50 mt-3">
-                                <button onclick="updateStock('${item.id}', -1)" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm border border-red-100"><i class="ph ph-minus"></i></button>
-                                <span class="font-black text-gray-800 text-lg">${item.quantity}</span>
-                                <button onclick="updateStock('${item.id}', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100"><i class="ph ph-plus"></i></button>
-                            </div>
+                        </div>
+                        <div class="p-3 pt-0 mt-auto flex items-center justify-between border-t border-gray-50 mt-1">
+                            <button onclick="updateStock('${item.id}', -1)" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm border border-red-100 active:scale-95 transition"><i class="ph ph-minus"></i></button>
+                            <span class="font-black text-gray-800 text-lg">${item.quantity}</span>
+                            <button onclick="updateStock('${item.id}', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100 active:scale-95 transition"><i class="ph ph-plus"></i></button>
                         </div>
                     </div>`;
             });
-
             if (filteredInventory.length === 0) {
-                if (searchInventoryTerm) {
-                    html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph ph-magnifying-glass text-4xl mb-2 text-gray-300"></i><p>No se encontraron resultados</p></div>';
-                } else {
-                    html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph-fill ph-box-arrow-down text-5xl mb-2 text-gray-300"></i><p>Tu stock está vacío</p></div>';
-                }
+                if (searchInventoryTerm) html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><p>No se encontraron resultados</p></div>';
+                else html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><p>Tu stock está vacío</p></div>';
             }
-
             document.getElementById('list-inventario').innerHTML = html;
         }
 
         window.openAddInventoryModal = () => {
-            editingInventoryId = null; 
-            currentBase64Photo = null;
-            document.getElementById('inventoryForm').reset();
-            
+            editingInventoryId = null; currentBase64Photo = null; document.getElementById('inventoryForm').reset();
             document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto';
-            document.getElementById('deleteInventoryBtn').classList.add('hidden');
-            
             document.getElementById('i-photo-placeholder').classList.remove('hidden');
             document.getElementById('i-photo-preview-container').classList.add('hidden');
-            
-            const m = document.getElementById('inventoryModal');
-            const c = document.getElementById('inventoryModalContent');
-            m.classList.remove('hidden');
-            setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+            const m = document.getElementById('inventoryModal'); const c = document.getElementById('inventoryModalContent');
+            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
         };
 
         window.openEditInventoryModal = (id) => {
-            const item = inventory.find(i => i.id === id);
-            if(!item) return;
-
-            editingInventoryId = id; 
-            currentBase64Photo = item.photoBase64 || null;
-            
-            document.getElementById('i-name').value = item.name;
-            document.getElementById('i-quantity').value = item.quantity;
-            document.getElementById('i-cost').value = item.cost;
-            
-            const previewContainer = document.getElementById('i-photo-preview-container');
-            const placeholder = document.getElementById('i-photo-placeholder');
-            const previewImg = document.getElementById('i-photo-preview');
-            
-            if (currentBase64Photo) {
-                previewImg.src = currentBase64Photo;
-                previewContainer.classList.remove('hidden');
-                previewContainer.classList.add('flex');
-                placeholder.classList.add('hidden');
-            } else {
-                previewContainer.classList.add('hidden');
-                previewContainer.classList.remove('flex');
-                placeholder.classList.remove('hidden');
-            }
-
+            const item = inventory.find(i => i.id === id); if(!item) return;
+            editingInventoryId = id; currentBase64Photo = item.photoBase64 || null;
+            document.getElementById('i-name').value = item.name; document.getElementById('i-quantity').value = item.quantity; document.getElementById('i-cost').value = item.cost;
+            const p = document.getElementById('i-photo-preview-container'); const ph = document.getElementById('i-photo-placeholder');
+            if (currentBase64Photo) { document.getElementById('i-photo-preview').src = currentBase64Photo; p.classList.remove('hidden'); p.classList.add('flex'); ph.classList.add('hidden'); } 
+            else { p.classList.add('hidden'); p.classList.remove('flex'); ph.classList.remove('hidden'); }
             document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-pencil-simple text-blue-600"></i> Editar Repuesto';
             
-            deleteConfirmStep = false;
-            const delBtn = document.getElementById('deleteInventoryBtn');
-            delBtn.classList.remove('hidden');
-            delBtn.innerHTML = '<i class="ph ph-trash text-lg"></i>';
-            delBtn.className = 'bg-red-100 text-red-600 font-bold py-3.5 px-4 rounded-xl shadow-sm active:bg-red-200 active:scale-[0.98] transition flex justify-center items-center w-14';
-
-            const m = document.getElementById('inventoryModal');
-            const c = document.getElementById('inventoryModalContent');
-            m.classList.remove('hidden');
-            setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+            const m = document.getElementById('inventoryModal'); const c = document.getElementById('inventoryModalContent');
+            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
         }
 
         window.closeInventoryModal = () => {
-            const m = document.getElementById('inventoryModal');
-            const c = document.getElementById('inventoryModalContent');
-            m.classList.add('opacity-0'); c.classList.add('translate-y-full');
-            setTimeout(() => m.classList.add('hidden'), 300);
-        };
-
-        let deleteConfirmStep = false;
-        window.confirmDeleteInventory = async () => {
-            if (!editingInventoryId) return;
-
-            const btn = document.getElementById('deleteInventoryBtn');
-
-            if (!deleteConfirmStep) {
-                deleteConfirmStep = true;
-                btn.innerHTML = '<i class="ph ph-warning text-lg"></i>';
-                btn.classList.replace('bg-red-100', 'bg-red-600');
-                btn.classList.replace('text-red-600', 'text-white');
-                
-                setTimeout(() => {
-                    if (deleteConfirmStep) {
-                        deleteConfirmStep = false;
-                        btn.innerHTML = '<i class="ph ph-trash text-lg"></i>';
-                        btn.classList.replace('bg-red-600', 'bg-red-100');
-                        btn.classList.replace('text-white', 'text-red-600');
-                    }
-                }, 3000);
-            } else {
-                btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', editingInventoryId));
-                    showToast("Repuesto eliminado correctamente");
-                    closeInventoryModal();
-                } catch(e) {
-                    console.error(e);
-                    showToast("Error al eliminar", "error");
-                    btn.innerHTML = '<i class="ph ph-warning text-lg"></i>';
-                }
-            }
+            const m = document.getElementById('inventoryModal'); const c = document.getElementById('inventoryModalContent');
+            m.classList.add('opacity-0'); c.classList.add('translate-y-full'); setTimeout(() => m.classList.add('hidden'), 300);
         };
 
         document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
-            const name = document.getElementById('i-name').value.trim();
-            if(!name) return showToast("Ingresa el nombre del repuesto.", "error");
-
-            const btn = e.currentTarget; const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
-
-            const dataToSave = {
-                name: name, 
-                quantity: parseInt(document.getElementById('i-quantity').value) || 0,
-                cost: parseMoneyInput(document.getElementById('i-cost').value),
-                photoBase64: currentBase64Photo || "", 
-            };
-
+            const name = document.getElementById('i-name').value.trim(); if(!name) return showToast("Falta nombre", "error");
+            const btn = e.currentTarget; const txt = btn.innerHTML; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
+            const data = { name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0, cost: parseMoneyInput(document.getElementById('i-cost').value), photoBase64: currentBase64Photo || "" };
             try {
-                if (editingInventoryId) {
-                    await Promise.race([
-                        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', editingInventoryId), dataToSave),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
-                    ]).catch(err => { if(err.message !== "offline-save") throw err; });
-                    showToast("Repuesto actualizado");
-                } else {
-                    dataToSave.dateAdded = new Date().toISOString();
-                    await Promise.race([
-                        addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), dataToSave),
-                        new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
-                    ]).catch(err => { if(err.message !== "offline-save") throw err; });
-                    showToast("Agregado al stock");
-                }
+                const savePromise = editingInventoryId ? updateDoc(doc(db, 'inventory', editingInventoryId), data) : addDoc(collection(db, 'inventory'), data);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+                await Promise.race([savePromise, timeoutPromise]);
+
+                if (editingInventoryId) showToast("Actualizado"); else showToast("Agregado");
                 closeInventoryModal();
             } catch (err) { 
-                console.error(err); 
-                showToast("Error al guardar", "error");
-            } finally { 
-                btn.innerHTML = originalText; btn.disabled = false; 
-            }
+                if (err.message === 'timeout') showToast("Error de conexión.", "error");
+                else handleFirebaseError(err); 
+            } finally { btn.innerHTML = txt; btn.disabled = false; }
         });
 
         window.updateStock = async (id, step) => {
             const item = inventory.find(i => i.id === id); if(!item) return;
-            try { 
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
-            } catch(e) { console.error(e); }
+            try { await updateDoc(doc(db, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); } catch(e) { handleFirebaseError(e); }
         };
 
+        // --- RESUMEN ---
         function populateSummarySelectors() {
-            const mesSelect = document.getElementById('r-mes');
-            const anoSelect = document.getElementById('r-ano');
+            const mesSelect = document.getElementById('r-mes'); const anoSelect = document.getElementById('r-ano');
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
             mesSelect.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join('');
             const currentYear = new Date().getFullYear();
             anoSelect.innerHTML = [currentYear-1, currentYear, currentYear+1].map(y => `<option value="${y}">${y}</option>`).join('');
             mesSelect.value = new Date().getMonth(); anoSelect.value = currentYear;
-            
-            mesSelect.addEventListener('change', calculateSummary); 
-            anoSelect.addEventListener('change', calculateSummary);
+            mesSelect.addEventListener('change', calculateSummary); anoSelect.addEventListener('change', calculateSummary);
         }
 
         function calculateSummary() {
-            const mesObj = parseInt(document.getElementById('r-mes').value);
-            const anoObj = parseInt(document.getElementById('r-ano').value);
+            const mesObj = parseInt(document.getElementById('r-mes').value); const anoObj = parseInt(document.getElementById('r-ano').value);
             document.getElementById('r-ano-label').innerText = anoObj;
-
-            let totalIngresosMes = 0, totalGastosMes = 0;
-            let totalGananciaAnual = 0;
-            let detalleHTML = '';
-            let trabajosMesCount = 0;
-
-            const entregados = tickets.filter(t => t.status === 'entregado');
-            entregados.sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
+            let totalIngresosMes = 0, totalGastosMes = 0, totalGananciaAnual = 0, detalleHTML = '', trabajosMesCount = 0;
+            const entregados = tickets.filter(t => t.status === 'entregado').sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
 
             entregados.forEach(t => {
                 const fechaFin = new Date(t.deliveredAt || t.createdAt);
-                const tMes = fechaFin.getMonth();
-                const tAno = fechaFin.getFullYear();
-                
-                const ingreso = t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0);
-                const gasto = (t.costoRepuestos || 0);
-                const ganancia = ingreso - gasto;
+                const tMes = fechaFin.getMonth(); const tAno = fechaFin.getFullYear();
+                const ingreso = t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0); const gasto = (t.costoRepuestos || 0); const ganancia = ingreso - gasto;
 
-                if (tAno === anoObj) {
-                    totalGananciaAnual += ganancia;
-                }
-
+                if (tAno === anoObj) totalGananciaAnual += ganancia;
                 if (tMes === mesObj && tAno === anoObj) {
-                    totalGastosMes += gasto;
-                    totalIngresosMes += ingreso;
-                    trabajosMesCount++;
-                    
-                    const fechaRecepcionStr = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
-                    const fechaFinStr = fechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
-
+                    totalGastosMes += gasto; totalIngresosMes += ingreso; trabajosMesCount++;
+                    const fechaIngreso = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+                    const fechaEntrega = fechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
                     detalleHTML += `
                         <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 relative overflow-hidden">
                             <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                             <div class="flex justify-between items-start border-b border-gray-50 pb-2 pl-2">
-                                <div>
-                                    <h4 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h4>
-                                    <p class="text-[11px] text-gray-500">${t.tipo} - ${t.marca} ${t.modelo}</p>
-                                </div>
-                                <div class="text-right text-sm">
-                                    <span class="font-black text-green-600 block">${formatMoney(ganancia)}</span>
-                                    <span class="text-[9px] text-gray-400 uppercase tracking-wide">Ganancia Neta</span>
-                                </div>
+                                <div><h4 class="font-bold text-gray-800 text-sm">${t.cliente}</h4><p class="text-[11px] text-gray-500 line-clamp-1">${t.tipo} - ${t.marca}</p></div>
+                                <div class="text-right text-sm"><span class="font-black text-green-600 block">${formatMoney(ganancia)}</span></div>
                             </div>
-                            <div class="flex justify-between items-center text-[10px] text-gray-500 pl-2">
-                                <div class="flex items-center gap-1"><i class="ph ph-download-simple text-blue-400"></i> Recibido: ${fechaRecepcionStr}</div>
-                                <div class="flex items-center gap-1"><i class="ph ph-check-circle text-green-400"></i> Terminado: ${fechaFinStr}</div>
+                            <div class="pl-2 flex justify-between text-[10px] text-gray-400 font-medium">
+                                <span><i class="ph-fill ph-download-simple"></i> Ingreso: ${fechaIngreso}</span>
+                                <span><i class="ph-fill ph-check-circle"></i> Entrega: ${fechaEntrega}</span>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 }
             });
-
-            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresosMes);
-            document.getElementById('r-gastos').innerText = formatMoney(totalGastosMes);
-            document.getElementById('r-ganancia').innerText = formatMoney(totalIngresosMes - totalGastosMes);
-            document.getElementById('r-ganancia-anual').innerText = formatMoney(totalGananciaAnual);
-            
+            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresosMes); document.getElementById('r-gastos').innerText = formatMoney(totalGastosMes);
+            document.getElementById('r-ganancia').innerText = formatMoney(totalIngresosMes - totalGastosMes); document.getElementById('r-ganancia-anual').innerText = formatMoney(totalGananciaAnual);
             document.getElementById('r-count-trabajos').innerText = trabajosMesCount;
-            document.getElementById('r-detalle-lista').innerHTML = detalleHTML || '<div class="text-center py-8 text-gray-400 text-sm"><i class="ph ph-folder-open text-4xl mb-2 text-gray-300"></i><p>No hay trabajos entregados este mes</p></div>';
+            document.getElementById('r-detalle-lista').innerHTML = detalleHTML || '<div class="text-center py-8 text-gray-400 text-sm"><p>No hay trabajos entregados este mes</p></div>';
         }
-
         populateSummarySelectors();
     </script>
 </body>
