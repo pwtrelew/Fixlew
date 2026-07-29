@@ -182,6 +182,11 @@
                 </button>
             </div>
             
+            <div class="relative mb-4">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
+                <input type="text" id="search-inventario" placeholder="Buscar repuesto..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white">
+            </div>
+            
             <div id="list-inventario" class="grid grid-cols-2 gap-3 pb-4"></div>
         </div>
 
@@ -221,7 +226,7 @@
                 <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-md font-bold" id="r-count-trabajos">0</span>
             </div>
             <div id="r-detalle-lista" class="space-y-3">
-                <!-- Los ítems del historial del mes se renderizan aquí -->
+                <!-- Items listados aquí -->
             </div>
         </div>
     </main>
@@ -326,7 +331,7 @@
         <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
             
             <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
-                <h2 class="text-lg font-black text-gray-800"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
+                <h2 class="text-lg font-black text-gray-800 flex items-center gap-2" id="inventoryModalTitle"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
                 <button onclick="closeInventoryModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
                     <i class="ph ph-x text-lg"></i>
                 </button>
@@ -370,8 +375,11 @@
             </div>
 
             <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <button type="button" id="deleteInventoryBtn" onclick="confirmDeleteInventory()" class="hidden bg-red-100 text-red-600 font-bold py-3.5 px-4 rounded-xl shadow-sm active:bg-red-200 active:scale-[0.98] transition flex justify-center items-center w-14">
+                    <i class="ph ph-trash text-lg"></i>
+                </button>
                 <button id="saveInventoryBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
-                    <i class="ph ph-plus-circle text-lg"></i> Agregar al Stock
+                    <i class="ph ph-plus-circle text-lg"></i> Guardar
                 </button>
             </div>
         </div>
@@ -393,7 +401,6 @@
             }, 3000);
         }
 
-        // Window exposed utility functions
         window.alert = (msg) => showToast(msg, 'error');
         
         function parseMoneyInput(val) {
@@ -412,7 +419,6 @@
             setTimeout(() => splash.style.display = 'none', 500);
         }
 
-        // PWA Manifest setup
         const manifest = {
             name: "Fixlew", short_name: "Fixlew", start_url: ".", display: "standalone",
             background_color: "#2563EB", theme_color: "#2563EB", orientation: "portrait",
@@ -425,7 +431,7 @@
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, enableIndexedDbPersistence, collection, query, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const myFirebaseConfig = {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
@@ -441,6 +447,10 @@
         let tickets = [], inventory = []; 
         let currentEditingId = null, currentStatusFilter = 'activo';
         let currentBase64Photo = null, currentTicketBase64Photo = null;
+        let editingInventoryId = null; // Para saber si editamos o creamos repuesto
+        let searchInventoryTerm = ""; // Para el buscador inteligente
+        let inlineDeleteConfirmId = null; // Rastrea qué tarjeta está pidiendo confirmación
+        let inlineDeleteTimer = null; // Temporizador para cancelar la confirmación
 
         try {
             app = initializeApp(myFirebaseConfig);
@@ -502,14 +512,10 @@
 
         function loadTickets() {
             const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-            // Nota: Ordenamos en memoria para evitar errores de índices faltantes en Firebase
             onSnapshot(query(ticketsRef), (snapshot) => {
                 let tempTickets = [];
                 snapshot.forEach((doc) => tempTickets.push({ id: doc.id, ...doc.data() }));
-                
-                // Ordenar por fecha de creación descendente
                 tickets = tempTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                
                 renderTickets();
                 calculateSummary();
             }, (error) => console.error("Error tickets:", error));
@@ -589,7 +595,6 @@
         setupPhotoCompressor('f-photo', 'f-photo-preview', 'f-photo-placeholder', 'f-photo-preview-container', (b64) => currentTicketBase64Photo = b64);
         setupPhotoCompressor('i-photo', 'i-photo-preview', 'i-photo-placeholder', 'i-photo-preview-container', (b64) => currentBase64Photo = b64);
 
-        // Previsualización en vivo para Nuevo Ingreso
         function updateNuevoPreview() {
             const precio = parseMoneyInput(document.getElementById('f-precio').value);
             const costo = parseMoneyInput(document.getElementById('f-costo').value);
@@ -600,65 +605,49 @@
         }
         ['f-precio', 'f-costo', 'f-anticipo'].forEach(id => document.getElementById(id).addEventListener('input', updateNuevoPreview));
 
-        // Guardar Nuevo Ticket
         document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btn-submit-nuevo');
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Guardando...';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Guardando...'; btn.disabled = true;
 
             try {
                 const lastTicket = tickets.reduce((max, t) => (t.ticketNumber > max ? t.ticketNumber : max), 0);
                 
                 const newTicket = {
-                    ticketNumber: lastTicket + 1,
-                    cliente: document.getElementById('f-nombre').value,
-                    tipo: document.getElementById('f-tipo').value,
-                    marca: document.getElementById('f-marca').value,
-                    modelo: document.getElementById('f-modelo').value,
-                    problema: document.getElementById('f-problema').value,
+                    ticketNumber: lastTicket + 1, cliente: document.getElementById('f-nombre').value,
+                    tipo: document.getElementById('f-tipo').value, marca: document.getElementById('f-marca').value,
+                    modelo: document.getElementById('f-modelo').value, problema: document.getElementById('f-problema').value,
                     accesorios: document.getElementById('f-accesorios').value,
                     precio: parseMoneyInput(document.getElementById('f-precio').value),
                     costoRepuestos: parseMoneyInput(document.getElementById('f-costo').value),
                     anticipo: parseMoneyInput(document.getElementById('f-anticipo').value),
-                    pagadoTotalmente: false,
-                    status: 'activo',
-                    photoBase64: currentTicketBase64Photo || "",
+                    pagadoTotalmente: false, status: 'activo', photoBase64: currentTicketBase64Photo || "",
                     createdAt: new Date().toISOString()
                 };
 
-                const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-                
                 await Promise.race([
-                    addDoc(ticketsRef, newTicket),
+                    addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets'), newTicket),
                     new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
                 ]).catch(err => { if(err.message !== "offline-save") throw err; });
                 
-                e.target.reset();
-                currentTicketBase64Photo = null;
+                e.target.reset(); currentTicketBase64Photo = null;
                 document.getElementById('f-photo-placeholder').classList.remove('hidden');
                 document.getElementById('f-photo-preview-container').classList.add('hidden');
                 document.getElementById('f-photo-preview-container').classList.remove('flex');
-                updateNuevoPreview(); // reset preview
+                updateNuevoPreview(); 
                 
-                showToast("Ingresado exitosamente");
-                switchTab('activos');
+                showToast("Ingresado exitosamente"); switchTab('activos');
             } catch (err) {
-                console.error(err);
-                showToast("Error al guardar.", "error");
-            } finally {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
+                console.error(err); showToast("Error al guardar.", "error");
+            } finally { btn.innerHTML = originalHtml; btn.disabled = false; }
         });
 
         window.openModal = (id) => {
             const ticket = tickets.find(t => t.id === id);
             if (!ticket) return;
             
-            currentEditingId = id;
-            currentStatusFilter = ticket.status;
+            currentEditingId = id; currentStatusFilter = ticket.status;
             
             document.getElementById('m-title').innerText = `Ticket #${String(ticket.ticketNumber || 0).padStart(3, '0')}`;
             document.getElementById('m-cliente').innerText = ticket.cliente;
@@ -669,20 +658,15 @@
             const photoContainer = document.getElementById('m-photo-container');
             const photoImg = document.getElementById('m-photo');
             if(ticket.photoBase64) {
-                photoImg.src = ticket.photoBase64;
-                photoContainer.classList.remove('hidden');
-            } else {
-                photoContainer.classList.add('hidden');
-            }
+                photoImg.src = ticket.photoBase64; photoContainer.classList.remove('hidden');
+            } else { photoContainer.classList.add('hidden'); }
 
             document.getElementById('m-costo').value = ticket.costoRepuestos || 0;
             document.getElementById('m-precio').value = ticket.precio || 0;
             document.getElementById('m-anticipo').value = ticket.anticipo || 0;
             document.getElementById('m-pagado').checked = ticket.pagadoTotalmente || false;
 
-            updateRestaModal();
-            updateStatusButtons();
-
+            updateRestaModal(); updateStatusButtons();
             ['m-precio', 'm-anticipo', 'm-costo'].forEach(i => document.getElementById(i).oninput = updateRestaModal);
 
             const modal = document.getElementById('ticketModal');
@@ -694,15 +678,12 @@
         window.closeModal = () => {
             const modal = document.getElementById('ticketModal');
             const content = document.getElementById('modalContent');
-            modal.classList.add('opacity-0');
-            content.classList.add('translate-y-full');
-            setTimeout(() => modal.classList.add('hidden'), 300);
-            currentEditingId = null;
+            modal.classList.add('opacity-0'); content.classList.add('translate-y-full');
+            setTimeout(() => modal.classList.add('hidden'), 300); currentEditingId = null;
         };
 
         window.setModalStatus = (status) => {
-            currentStatusFilter = status;
-            updateStatusButtons();
+            currentStatusFilter = status; updateStatusButtons();
         };
 
         function updateStatusButtons() {
@@ -718,7 +699,6 @@
             document.getElementById('m-resta').innerText = formatMoney(Math.max(0, p - a));
         }
 
-        // Cambio automático a 'entregado'
         document.getElementById('m-pagado').addEventListener('change', (e) => {
             if (e.target.checked && currentStatusFilter !== 'entregado') {
                 setModalStatus('entregado');
@@ -728,8 +708,7 @@
 
         document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
             if (!currentEditingId) return;
-            const btn = e.currentTarget;
-            const originalText = btn.innerHTML;
+            const btn = e.currentTarget; const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
 
             try {
@@ -744,7 +723,6 @@
                     status: currentStatusFilter
                 };
                 
-                // Si se marca como entregado y no tenía fecha, registrar la fecha de finalización/entrega
                 if (currentStatusFilter === 'entregado' && ticketActual && !ticketActual.deliveredAt) {
                     updates.deliveredAt = new Date().toISOString();
                 }
@@ -754,13 +732,10 @@
                     new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 3000))
                 ]).catch(err => { if(err.message !== "offline-save") throw err; });
                 
-                showToast("Cambios guardados");
-                closeModal();
+                showToast("Cambios guardados"); closeModal();
             } catch (err) {
                 console.error(err); showToast("Error al guardar los cambios.", "error");
-            } finally {
-                btn.innerHTML = originalText; btn.disabled = false;
-            }
+            } finally { btn.innerHTML = originalText; btn.disabled = false; }
         });
 
         function loadInventory() {
@@ -768,67 +743,75 @@
             onSnapshot(query(inventoryRef), (snapshot) => {
                 let tempInv = []; 
                 snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
-                // Sort by name in JS
                 inventory = tempInv.sort((a, b) => a.name.localeCompare(b.name));
                 renderInventory();
             });
         }
 
-        window.openAddInventoryModal = () => {
-            currentBase64Photo = null;
-            document.getElementById('inventoryForm').reset();
-            document.getElementById('i-photo-placeholder').classList.remove('hidden');
-            document.getElementById('i-photo-preview-container').classList.add('hidden');
-            
-            const m = document.getElementById('inventoryModal');
-            const c = document.getElementById('inventoryModalContent');
-            m.classList.remove('hidden');
-            setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
-        };
-
-        window.closeInventoryModal = () => {
-            const m = document.getElementById('inventoryModal');
-            const c = document.getElementById('inventoryModalContent');
-            m.classList.add('opacity-0'); c.classList.add('translate-y-full');
-            setTimeout(() => m.classList.add('hidden'), 300);
-        };
-
-        document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
-            const name = document.getElementById('i-name').value.trim();
-            if(!name) return showToast("Ingresa el nombre del repuesto.", "error");
-
-            const btn = e.currentTarget; const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
-
-            try {
-                await Promise.race([
-                    addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory'), {
-                        name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0,
-                        cost: parseMoneyInput(document.getElementById('i-cost').value),
-                        photoBase64: currentBase64Photo || "", dateAdded: new Date().toISOString()
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
-                ]).catch(err => { if(err.message !== "offline-save") throw err; });
-                
-                showToast("Agregado al stock");
-                closeInventoryModal();
-            } catch (err) { console.error(err); } finally { btn.innerHTML = originalText; btn.disabled = false; }
+        // Buscador
+        document.getElementById('search-inventario').addEventListener('input', (e) => {
+            searchInventoryTerm = e.target.value.toLowerCase();
+            renderInventory();
         });
 
-        window.updateStock = async (id, step) => {
-            const item = inventory.find(i => i.id === id); if(!item) return;
-            try { 
-                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
-            } catch(e) { console.error(e); }
+        window.confirmInlineDelete = async (id, event) => {
+            if (event) event.stopPropagation();
+            
+            if (inlineDeleteConfirmId !== id) {
+                // Primer clic: Pedir confirmación
+                inlineDeleteConfirmId = id;
+                renderInventory(); // Re-renderizar para mostrar el botón en rojo
+                
+                clearTimeout(inlineDeleteTimer);
+                inlineDeleteTimer = setTimeout(() => {
+                    // Cancelar si pasan 3 segundos
+                    if (inlineDeleteConfirmId === id) {
+                        inlineDeleteConfirmId = null;
+                        renderInventory();
+                    }
+                }, 3000);
+            } else {
+                // Segundo clic: Ejecutar eliminación
+                clearTimeout(inlineDeleteTimer);
+                inlineDeleteConfirmId = null;
+                
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id));
+                    showToast("Repuesto eliminado");
+                } catch(e) {
+                    console.error(e);
+                    showToast("Error al eliminar", "error");
+                }
+            }
         };
 
         function renderInventory() {
             let html = '';
-            inventory.forEach(item => {
+            
+            // Filtrar por texto de búsqueda
+            const filteredInventory = inventory.filter(item => 
+                item.name.toLowerCase().includes(searchInventoryTerm)
+            );
+
+            filteredInventory.forEach(item => {
                 const photoHtml = item.photoBase64 ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-xl border-b border-gray-100">` : `<div class="w-full h-28 bg-gray-100 flex flex-col items-center justify-center rounded-t-xl border-b border-gray-100 text-gray-400"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
+                
+                const isConfirming = inlineDeleteConfirmId === item.id;
+                
                 html += `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group">
                         ${photoHtml}
+                        
+                        <!-- Botones de Acción (Absoluto en la esquina) -->
+                        <div class="absolute top-2 right-2 flex gap-1.5 z-10">
+                            <button onclick="confirmInlineDelete('${item.id}', event)" class="w-8 h-8 ${isConfirming ? 'bg-red-600 text-white border-red-600' : 'bg-white/90 text-red-500 border-gray-200'} backdrop-blur rounded-full flex items-center justify-center shadow-sm border active:scale-95 transition">
+                                <i class="ph-fill ${isConfirming ? 'ph-warning' : 'ph-trash'} text-sm"></i>
+                            </button>
+                            <button onclick="openEditInventoryModal('${item.id}')" class="w-8 h-8 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-gray-500 shadow-sm border border-gray-200 active:scale-95 transition">
+                                <i class="ph-fill ph-pencil-simple text-sm"></i>
+                            </button>
+                        </div>
+
                         <div class="p-3 flex-1 flex flex-col">
                             <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${item.name}</h3>
                             <p class="text-[11px] text-green-600 font-bold mt-1 bg-green-50 self-start px-2 py-0.5 rounded">${formatMoney(item.cost)}</p>
@@ -840,8 +823,172 @@
                         </div>
                     </div>`;
             });
-            document.getElementById('list-inventario').innerHTML = html || '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph-fill ph-box-arrow-down text-5xl mb-2 text-gray-300"></i><p>Tu stock está vacío</p></div>';
+
+            if (filteredInventory.length === 0) {
+                if (searchInventoryTerm) {
+                    html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph ph-magnifying-glass text-4xl mb-2 text-gray-300"></i><p>No se encontraron resultados</p></div>';
+                } else {
+                    html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph-fill ph-box-arrow-down text-5xl mb-2 text-gray-300"></i><p>Tu stock está vacío</p></div>';
+                }
+            }
+
+            document.getElementById('list-inventario').innerHTML = html;
         }
+
+        window.openAddInventoryModal = () => {
+            editingInventoryId = null; // Modo Creación
+            currentBase64Photo = null;
+            document.getElementById('inventoryForm').reset();
+            
+            // UI para Modo Creación
+            document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto';
+            document.getElementById('deleteInventoryBtn').classList.add('hidden');
+            
+            document.getElementById('i-photo-placeholder').classList.remove('hidden');
+            document.getElementById('i-photo-preview-container').classList.add('hidden');
+            
+            const m = document.getElementById('inventoryModal');
+            const c = document.getElementById('inventoryModalContent');
+            m.classList.remove('hidden');
+            setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+        };
+
+        window.openEditInventoryModal = (id) => {
+            const item = inventory.find(i => i.id === id);
+            if(!item) return;
+
+            editingInventoryId = id; // Modo Edición
+            currentBase64Photo = item.photoBase64 || null;
+            
+            // Llenar datos
+            document.getElementById('i-name').value = item.name;
+            document.getElementById('i-quantity').value = item.quantity;
+            document.getElementById('i-cost').value = item.cost;
+            
+            // Foto existente
+            const previewContainer = document.getElementById('i-photo-preview-container');
+            const placeholder = document.getElementById('i-photo-placeholder');
+            const previewImg = document.getElementById('i-photo-preview');
+            
+            if (currentBase64Photo) {
+                previewImg.src = currentBase64Photo;
+                previewContainer.classList.remove('hidden');
+                previewContainer.classList.add('flex');
+                placeholder.classList.add('hidden');
+            } else {
+                previewContainer.classList.add('hidden');
+                previewContainer.classList.remove('flex');
+                placeholder.classList.remove('hidden');
+            }
+
+            // UI para Modo Edición
+            document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-pencil-simple text-blue-600"></i> Editar Repuesto';
+            
+            // Resetear estado del botón eliminar por si se quedó atascado
+            deleteConfirmStep = false;
+            const delBtn = document.getElementById('deleteInventoryBtn');
+            delBtn.classList.remove('hidden');
+            delBtn.innerHTML = '<i class="ph ph-trash text-lg"></i>';
+            delBtn.className = 'bg-red-100 text-red-600 font-bold py-3.5 px-4 rounded-xl shadow-sm active:bg-red-200 active:scale-[0.98] transition flex justify-center items-center w-14';
+
+            const m = document.getElementById('inventoryModal');
+            const c = document.getElementById('inventoryModalContent');
+            m.classList.remove('hidden');
+            setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+        }
+
+        window.closeInventoryModal = () => {
+            const m = document.getElementById('inventoryModal');
+            const c = document.getElementById('inventoryModalContent');
+            m.classList.add('opacity-0'); c.classList.add('translate-y-full');
+            setTimeout(() => m.classList.add('hidden'), 300);
+        };
+
+        // Lógica de Eliminación (Doble Tap para confirmar)
+        let deleteConfirmStep = false;
+        window.confirmDeleteInventory = async () => {
+            if (!editingInventoryId) return;
+
+            const btn = document.getElementById('deleteInventoryBtn');
+
+            if (!deleteConfirmStep) {
+                // Primer clic: Pedir confirmación
+                deleteConfirmStep = true;
+                btn.innerHTML = '<i class="ph ph-warning text-lg"></i>';
+                btn.classList.replace('bg-red-100', 'bg-red-600');
+                btn.classList.replace('text-red-600', 'text-white');
+                
+                // Reiniciar si no presiona de nuevo en 3 segundos
+                setTimeout(() => {
+                    if (deleteConfirmStep) {
+                        deleteConfirmStep = false;
+                        btn.innerHTML = '<i class="ph ph-trash text-lg"></i>';
+                        btn.classList.replace('bg-red-600', 'bg-red-100');
+                        btn.classList.replace('text-white', 'text-red-600');
+                    }
+                }, 3000);
+            } else {
+                // Segundo clic: Ejecutar eliminación
+                btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', editingInventoryId));
+                    showToast("Repuesto eliminado correctamente");
+                    closeInventoryModal();
+                } catch(e) {
+                    console.error(e);
+                    showToast("Error al eliminar", "error");
+                    btn.innerHTML = '<i class="ph ph-warning text-lg"></i>';
+                }
+            }
+        };
+
+        // Lógica de Guardado (Crear o Actualizar)
+        document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
+            const name = document.getElementById('i-name').value.trim();
+            if(!name) return showToast("Ingresa el nombre del repuesto.", "error");
+
+            const btn = e.currentTarget; const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
+
+            const dataToSave = {
+                name: name, 
+                quantity: parseInt(document.getElementById('i-quantity').value) || 0,
+                cost: parseMoneyInput(document.getElementById('i-cost').value),
+                photoBase64: currentBase64Photo || "", 
+            };
+
+            try {
+                if (editingInventoryId) {
+                    // Actualizar Existente
+                    await Promise.race([
+                        updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', editingInventoryId), dataToSave),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
+                    ]).catch(err => { if(err.message !== "offline-save") throw err; });
+                    showToast("Repuesto actualizado");
+                } else {
+                    // Crear Nuevo
+                    dataToSave.dateAdded = new Date().toISOString();
+                    await Promise.race([
+                        addDoc(collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory'), dataToSave),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("offline-save")), 2000))
+                    ]).catch(err => { if(err.message !== "offline-save") throw err; });
+                    showToast("Agregado al stock");
+                }
+                closeInventoryModal();
+            } catch (err) { 
+                console.error(err); 
+                showToast("Error al guardar", "error");
+            } finally { 
+                btn.innerHTML = originalText; btn.disabled = false; 
+            }
+        });
+
+        window.updateStock = async (id, step) => {
+            const item = inventory.find(i => i.id === id); if(!item) return;
+            try { 
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); 
+            } catch(e) { console.error(e); }
+        };
 
         function populateSummarySelectors() {
             const mesSelect = document.getElementById('r-mes');
@@ -866,7 +1013,6 @@
             let detalleHTML = '';
             let trabajosMesCount = 0;
 
-            // Filtrar y ordenar los entregados por fecha de finalización (descendente)
             const entregados = tickets.filter(t => t.status === 'entregado');
             entregados.sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
 
