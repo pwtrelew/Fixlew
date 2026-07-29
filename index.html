@@ -4,241 +4,394 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fixlew</title>
-    <!-- Tailwind CSS -->
+    
+    <!-- Optimizaciones de velocidad de carga -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://firestore.googleapis.com">
+    
+    <!-- Librerías de diseño y estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; -webkit-tap-highlight-color: transparent; }
-        .tab-content { display: none; }
+        /* Estilos nativos para la carga inicial ultrarrápida */
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f3f4f6; margin: 0; overscroll-behavior-y: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
         .tab-content.active { display: block; }
-        .bottom-nav-item.active { color: #2563EB; font-weight: 600; }
-        .bottom-nav-item.active .nav-icon { fill: #2563EB; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Modal Animation */
-        #ticketModal { transition: opacity 0.2s ease-in-out; }
-        #modalContent { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .modal-open #modalContent { transform: translateY(0); }
-        .modal-closed #modalContent { transform: translateY(100%); }
+        /* Ocultar barra de scroll para un look de App Nativa */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        /* Splash Screen (Pantalla de carga inicial) */
+        #splash-screen {
+            position: fixed; inset: 0; background-color: #2563EB; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease-out, visibility 0.5s;
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3); border-left-color: #ffffff;
+            border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col overflow-hidden text-gray-800">
+<body class="flex flex-col h-screen overflow-hidden text-gray-800">
 
-    <!-- Header -->
-    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0">
+    <div id="splash-screen">
+        <i class="ph-fill ph-wrench text-white text-6xl mb-4"></i>
+        <h1 class="text-white text-3xl font-black tracking-tight mb-6">Fixlew</h1>
+        <div class="spinner"></div>
+        <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando a la nube...</p>
+    </div>
+
+    <!-- Header App -->
+    <header class="bg-blue-600 text-white p-4 shadow-md z-10 shrink-0 pt-safe flex justify-between items-center">
         <div>
             <h1 class="text-xl font-bold flex items-center gap-2">
                 <i class="ph-fill ph-wrench"></i> Fixlew
             </h1>
-            <p id="auth-status" class="text-xs text-blue-200 mt-0.5">Conectando...</p>
+            <p id="auth-status" class="text-[10px] text-blue-200 uppercase tracking-wider font-semibold mt-0.5 flex items-center gap-1">
+                <i class="ph ph-spinner animate-spin"></i> Conectando...
+            </p>
         </div>
-        <button id="searchBtn" class="p-2 hover:bg-blue-700 rounded-full transition"><i class="ph ph-magnifying-glass text-xl"></i></button>
+        <button class="w-10 h-10 rounded-full bg-blue-700/50 flex items-center justify-center active:bg-blue-800 transition">
+            <i class="ph ph-magnifying-glass text-xl"></i>
+        </button>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto pb-20 p-4 relative" id="main-container">
+    <!-- Contenedor Principal (Tabs) -->
+    <main class="flex-1 overflow-y-auto bg-gray-50 p-4 relative">
         
-        <!-- Loading Overlay -->
-        <div id="loadingOverlay" class="absolute inset-0 bg-gray-100 z-50 flex flex-col items-center justify-center">
-            <i class="ph ph-spinner animate-spin text-4xl text-blue-600 mb-2"></i>
-            <p class="text-gray-500 font-medium">Cargando datos...</p>
+        <!-- Alerta temporal para configuración -->
+        <div id="config-alert" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-4 shadow-sm text-sm">
+            <p class="font-bold mb-1"><i class="ph-fill ph-warning-circle"></i> Error de conexión</p>
+            <p>Por favor, asegúrate de haber activado el inicio de sesión <b>"Anónimo"</b> en la consola de tu Firebase (Sección Authentication).</p>
         </div>
 
-        <!-- TAB: Activos (Pendientes/En Proceso) -->
-        <div id="tab-activos" class="tab-content active space-y-3">
+        <!-- TAB: Activos -->
+        <div id="tab-activos" class="tab-content active space-y-3 pb-20">
             <div class="flex justify-between items-end mb-2">
-                <h2 class="text-lg font-bold text-gray-700">Trabajos Activos</h2>
-                <span id="count-activos" class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-full">0</span>
+                <h2 class="text-lg font-bold text-gray-700">Trabajos en Taller</h2>
+                <span class="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-md" id="count-activos">0</span>
             </div>
-            <div id="list-activos" class="space-y-3 pb-4">
-                <!-- Los tickets activos se inyectarán aquí -->
+            <div id="list-activos" class="space-y-3">
+                <!-- Tarjetas Inyectadas por JS -->
+            </div>
+        </div>
+
+        <!-- TAB: Historial -->
+        <div id="tab-historial" class="tab-content space-y-3 pb-20">
+            <h2 class="text-lg font-bold text-gray-700 mb-2">Trabajos Entregados</h2>
+            <div id="list-historial" class="space-y-3">
+                <!-- Tarjetas Inyectadas por JS -->
             </div>
         </div>
 
         <!-- TAB: Nuevo Ingreso -->
-        <div id="tab-nuevo" class="tab-content">
-            <h2 class="text-lg font-bold text-gray-700 mb-4">Ingresar Equipo</h2>
-            <form id="newTicketForm" class="space-y-4 pb-4">
+        <div id="tab-nuevo" class="tab-content max-w-lg mx-auto pb-24">
+            <h2 class="text-lg font-bold text-gray-700 mb-4">Ingresar Nuevo Equipo</h2>
+            <form id="newTicketForm" class="space-y-4">
+                
                 <!-- Cliente -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                    <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-user"></i> Datos del Cliente</h3>
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xs font-bold text-blue-600 mb-3 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-user"></i> Datos del Cliente</h3>
                     <div>
                         <label class="block text-xs font-medium text-gray-500 mb-1">Nombre Completo *</label>
-                        <input type="text" id="t-clientName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        <input type="text" id="f-nombre" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white transition">
                     </div>
                 </div>
 
                 <!-- Equipo -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                    <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-device-mobile"></i> Datos del Equipo</h3>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Tipo de Equipo *</label>
-                        <select id="t-category" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
-                            <option value="Celular">Celular</option>
-                            <option value="Notebook">Notebook</option>
-                            <option value="PC Escritorio">PC Escritorio</option>
-                            <option value="Tablet">Tablet</option>
-                            <option value="Consola">Consola</option>
-                            <option value="Otro">Otro</option>
-                        </select>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xs font-bold text-blue-600 mb-3 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-device-mobile"></i> Datos del Equipo</h3>
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Marca *</label>
-                            <input type="text" id="t-brand" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Tipo de Equipo *</label>
+                            <select id="f-tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                                <option value="Celular">Celular</option>
+                                <option value="Notebook">Notebook</option>
+                                <option value="PC Escritorio">PC Escritorio</option>
+                                <option value="Tablet">Tablet</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Marca *</label>
+                                <input type="text" id="f-marca" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Modelo *</label>
+                                <input type="text" id="f-modelo" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Modelo *</label>
-                            <input type="text" id="t-model" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Problema Reportado / Motivo *</label>
+                            <textarea id="f-problema" required rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white"></textarea>
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Problema Reportado / Motivo *</label>
-                        <textarea id="t-issue" required rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Accesorios dejados (Opcional)</label>
-                        <input type="text" id="t-accessories" placeholder="Funda, cargador, etc." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Accesorios dejados (Opcional)</label>
+                            <input type="text" id="f-accesorios" placeholder="Ej: Funda, cargador..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                        </div>
                     </div>
                 </div>
 
-                <!-- Finanzas y Guardar -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                    <h3 class="text-sm font-semibold text-blue-600 uppercase tracking-wider flex items-center gap-1"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
+                <!-- Finanzas Iniciales -->
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xs font-bold text-blue-600 mb-3 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Presupuesto Total ($)</label>
-                            <input type="text" inputmode="decimal" id="t-price" placeholder="Ej: 25000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm font-semibold text-gray-700">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Presupuesto / Precio ($)</label>
+                            <input type="text" inputmode="decimal" id="f-precio" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($)</label>
-                            <input type="text" inputmode="decimal" id="t-advance" placeholder="Ej: 5000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                            <input type="text" inputmode="decimal" id="f-anticipo" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-blue-700 transition active:scale-95 flex justify-center items-center gap-2">
-                    <i class="ph ph-plus-circle text-xl"></i> Guardar Nuevo Ingreso
+                <button type="submit" id="btn-submit-nuevo" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center gap-2">
+                    <i class="ph ph-plus-circle text-lg"></i> Guardar Ingreso
                 </button>
             </form>
         </div>
 
-        <!-- TAB: Historial (Entregados/Cancelados) -->
-        <div id="tab-historial" class="tab-content space-y-3">
-            <h2 class="text-lg font-bold text-gray-700 mb-2">Historial de Trabajos</h2>
-            <div id="list-historial" class="space-y-3 pb-4">
-                <!-- Los tickets históricos se inyectarán aquí -->
+        <!-- TAB: Stock / Inventario -->
+        <div id="tab-inventario" class="tab-content space-y-4 pb-24">
+            <div class="flex justify-between items-end mb-2">
+                <h2 class="text-lg font-bold text-gray-700">Inventario</h2>
+                <button onclick="openAddInventoryModal()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-md hover:bg-blue-700 active:scale-[0.95] transition flex items-center gap-1">
+                    <i class="ph ph-plus"></i> Agregar
+                </button>
+            </div>
+            
+            <div id="list-inventario" class="grid grid-cols-2 gap-3 pb-4">
+                <!-- Items inyectados -->
             </div>
         </div>
 
-        <!-- TAB: Resumen Financiero -->
-        <div id="tab-resumen" class="tab-content space-y-4">
-            <h2 class="text-lg font-bold text-gray-700 mb-2">Resumen Financiero</h2>
+        <!-- TAB: Resumen -->
+        <div id="tab-resumen" class="tab-content pb-24">
+            <h2 class="text-lg font-bold text-gray-700 mb-4">Resumen Financiero</h2>
             
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4">
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Mes</label>
-                    <select id="r-month" class="w-full px-2 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-                        <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-                        <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-                        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-                    </select>
-                </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Año</label>
-                    <select id="r-year" class="w-full px-2 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
-                    </select>
-                </div>
+            <div class="flex gap-2 mb-4">
+                <select id="r-mes" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium shadow-sm outline-none"></select>
+                <select id="r-ano" class="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium shadow-sm outline-none"></select>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-green-50 border border-green-100 p-4 rounded-xl">
-                    <p class="text-xs font-semibold text-green-700 uppercase tracking-wider">Ingresos / Cobros</p>
-                    <p id="r-ingresos" class="text-xl font-bold text-green-800 mt-1">$ 0</p>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-up text-green-500"></i> Ingresos</p>
+                    <p id="r-ingresos" class="text-lg font-black text-gray-800">$ 0</p>
                 </div>
-                <div class="bg-red-50 border border-red-100 p-4 rounded-xl">
-                    <p class="text-xs font-semibold text-red-700 uppercase tracking-wider">Costo Repuestos</p>
-                    <p id="r-costos" class="text-xl font-bold text-red-800 mt-1">$ 0</p>
+                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-down text-red-500"></i> Gastos (Repuestos)</p>
+                    <p id="r-gastos" class="text-lg font-black text-gray-800">$ 0</p>
                 </div>
             </div>
 
             <div class="bg-white border-2 border-blue-100 p-5 rounded-xl text-center shadow-sm">
                 <p class="text-sm font-semibold text-gray-500 uppercase tracking-widest mb-1">Ganancia Neta del Mes</p>
                 <p id="r-ganancia" class="text-3xl font-black text-blue-600">$ 0</p>
-                <p class="text-xs text-gray-400 mt-2">* Basado en trabajos "Entregados" y señas tomadas.</p>
+                <p class="text-xs text-gray-400 mt-2">* Ingresos calculados de señas y trabajos finalizados pagados.</p>
             </div>
         </div>
-
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="bg-white border-t border-gray-200 flex justify-around items-center pb-safe pt-2 px-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-20 shrink-0 h-16">
-        <button onclick="switchTab('activos')" id="nav-activos" class="bottom-nav-item active flex flex-col items-center p-2 text-gray-500 transition w-16">
-            <i class="ph ph-wrench text-2xl mb-0.5"></i>
-            <span class="text-[10px]">Activos</span>
+    <nav class="bg-white border-t border-gray-200 flex justify-between items-center pb-safe pt-1 px-1 shadow-[0_-2px_15px_rgba(0,0,0,0.03)] z-20 shrink-0 h-16">
+        <button onclick="switchTab('activos')" id="nav-activos" class="bottom-nav-item active flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
+            <i class="ph-fill ph-wrench text-[22px] mb-0.5"></i>
+            <span class="text-[10px] font-medium">Activos</span>
         </button>
-        <button onclick="switchTab('nuevo')" id="nav-nuevo" class="bottom-nav-item flex flex-col items-center justify-center p-2 text-gray-500 transition relative top-[-15px]">
-            <div class="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition">
-                <i class="ph ph-plus text-2xl"></i>
-            </div>
-            <span class="text-[10px] mt-1 font-medium text-blue-600">Nuevo</span>
+        <button onclick="switchTab('historial')" id="nav-historial" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
+            <i class="ph-fill ph-archive-box text-[22px] mb-0.5"></i>
+            <span class="text-[10px] font-medium">Historial</span>
         </button>
-        <button onclick="switchTab('historial')" id="nav-historial" class="bottom-nav-item flex flex-col items-center p-2 text-gray-500 transition w-16">
-            <i class="ph ph-archive-box text-2xl mb-0.5"></i>
-            <span class="text-[10px]">Historial</span>
+        
+        <!-- Botón Nuevo (Central) -->
+        <div class="flex-1 flex justify-center relative top-[-10px]">
+            <button onclick="switchTab('nuevo')" id="nav-nuevo" class="bottom-nav-item flex flex-col items-center justify-center text-gray-400 transition">
+                <div class="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.4)] active:scale-[0.95] transition">
+                    <i class="ph ph-plus text-2xl"></i>
+                </div>
+                <span class="text-[10px] mt-1 font-bold text-blue-600">Nuevo</span>
+            </button>
+        </div>
+
+        <button onclick="switchTab('inventario')" id="nav-inventario" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
+            <i class="ph-fill ph-box-cube text-[22px] mb-0.5"></i>
+            <span class="text-[10px] font-medium">Stock</span>
         </button>
-        <button onclick="switchTab('resumen')" id="nav-resumen" class="bottom-nav-item flex flex-col items-center p-2 text-gray-500 transition w-16">
-            <i class="ph ph-chart-bar text-2xl mb-0.5"></i>
-            <span class="text-[10px]">Resumen</span>
+        <button onclick="switchTab('resumen')" id="nav-resumen" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
+            <i class="ph-fill ph-chart-bar text-[22px] mb-0.5"></i>
+            <span class="text-[10px] font-medium">Resumen</span>
         </button>
     </nav>
 
-    <!-- Ticket Detail Modal -->
-    <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none">
-        <div id="modalContent" class="bg-white w-full rounded-t-2xl h-[85vh] flex flex-col modal-closed pointer-events-auto">
+    <!-- Modal: Detalle / Edición de Ticket -->
+    <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[50] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
+        <div id="modalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
             
-            <div class="flex justify-between items-center p-4 border-b shrink-0">
-                <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    <span id="m-serviceNumber" class="bg-gray-100 px-2 py-1 rounded text-sm text-gray-600">#--</span>
-                    Detalle de Trabajo
-                </h2>
-                <button id="closeModalBtn" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
+            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
+                <h2 class="text-lg font-black text-gray-800" id="m-title">Ticket #000</h2>
+                <button onclick="closeModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
                     <i class="ph ph-x text-lg"></i>
                 </button>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-4" id="modalScrollArea">
-                <div id="modalBody" class="space-y-4 pb-20">
-                    <!-- Contenido dinámico del modal -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                
+                <!-- Status Bar -->
+                <div class="bg-white p-1.5 rounded-lg border flex text-sm text-center shadow-sm font-medium">
+                    <button id="btn-status-activo" onclick="setModalStatus('activo')" class="flex-1 py-1.5 rounded-md transition text-gray-500">En Taller</button>
+                    <button id="btn-status-entregado" onclick="setModalStatus('entregado')" class="flex-1 py-1.5 rounded-md transition text-gray-500">Entregado</button>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-sm space-y-2">
+                    <p class="text-gray-500"><i class="ph ph-user"></i> Cliente: <span id="m-cliente" class="font-bold text-gray-800"></span></p>
+                    <p class="text-gray-500"><i class="ph ph-device-mobile"></i> Equipo: <span id="m-equipo" class="font-bold text-gray-800"></span></p>
+                    <p class="text-gray-500"><i class="ph ph-warning-circle"></i> Falla: <span id="m-falla" class="font-medium text-gray-800"></span></p>
+                    <p class="text-gray-500"><i class="ph ph-calendar"></i> Ingreso: <span id="m-fecha" class="text-gray-800"></span></p>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Finanzas del Trabajo</h3>
+                    
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <span class="text-sm text-gray-600">Costo Repuestos ($)</span>
+                        <input type="text" inputmode="decimal" id="m-costo" class="w-28 text-right font-bold text-red-600 border rounded px-2 py-1 outline-none focus:border-red-500 bg-red-50">
+                    </div>
+                    
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <span class="text-sm text-gray-600">Precio a Cobrar ($)</span>
+                        <input type="text" inputmode="decimal" id="m-precio" class="w-28 text-right font-bold text-gray-800 border rounded px-2 py-1 outline-none bg-gray-50">
+                    </div>
+                    
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <span class="text-sm text-gray-600">Anticipo Dejado ($)</span>
+                        <input type="text" inputmode="decimal" id="m-anticipo" class="w-28 text-right font-bold text-green-600 border rounded px-2 py-1 outline-none bg-green-50">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-sm font-bold text-gray-800">Resta Cobrar:</span>
+                        <span id="m-resta" class="font-black text-xl text-blue-600">$ 0</span>
+                    </div>
+
+                    <label class="flex items-center gap-2 mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer">
+                        <input type="checkbox" id="m-pagado" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                        <span class="text-sm font-bold text-blue-800">Confirmar saldo totalmente abonado</span>
+                    </label>
                 </div>
             </div>
 
-            <!-- Action Bar Modal -->
+            <!-- Boton Guardar Ticket -->
             <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button id="saveModalBtn" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg active:bg-blue-700 transition flex justify-center items-center gap-2">
+                <button id="saveModalBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
                     <i class="ph ph-floppy-disk text-lg"></i> Guardar Cambios
                 </button>
             </div>
-
         </div>
     </div>
 
+    <!-- Modal: Inventario -->
+    <div id="inventoryModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
+        <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
+            
+            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
+                <h2 class="text-lg font-black text-gray-800"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
+                <button onclick="closeInventoryModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4">
+                <form id="inventoryForm" class="space-y-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre / Descripción *</label>
+                        <input type="text" id="i-name" required placeholder="Ej: Pantalla Moto G84" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Cantidad *</label>
+                            <input type="number" id="i-quantity" required min="0" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Costo ($)</label>
+                            <input type="text" inputmode="decimal" id="i-cost" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                        </div>
+                    </div>
 
-    <!-- ================= LOGICA FIREBASE & APP ================= -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Foto del Repuesto (Opcional)</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
+                            <input type="file" id="i-photo" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                            
+                            <div id="i-photo-preview-container" class="hidden flex-col items-center justify-center">
+                                <img id="i-photo-preview" class="h-28 object-contain rounded-md shadow-sm mb-2">
+                                <span class="text-xs text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-full">Cambiar foto</span>
+                            </div>
+                            
+                            <div id="i-photo-placeholder" class="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+                                <i class="ph-fill ph-camera text-4xl mb-2 text-gray-300"></i>
+                                <span class="text-sm font-medium text-gray-500">Toca para tomar foto o subir</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <button id="saveInventoryBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
+                    <i class="ph ph-plus-circle text-lg"></i> Agregar al Stock
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
-        // Importar Firebase SDK 12.16.0
+        // ================= CONFIGURACIÓN PWA =================
+        const manifest = {
+            name: "Fixlew",
+            short_name: "Fixlew",
+            start_url: ".",
+            display: "standalone",
+            background_color: "#2563EB",
+            theme_color: "#2563EB",
+            orientation: "portrait",
+            icons: [{
+                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Crect x='64' y='24' width='128' height='208' rx='16' fill='%232563EB' stroke='%23ffffff' stroke-width='16'/%3E%3Cline x1='64' y1='56' x2='192' y2='56' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cline x1='64' y1='200' x2='192' y2='200' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M168,96a40,40,0,1,0-40,40A40,40,0,0,0,168,96Z' fill='%23ffffff' opacity='0.8'/%3E%3Cline x1='120' y1='112' x2='96' y2='136' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E",
+                sizes: "192x192 512x512",
+                type: "image/svg+xml"
+            }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(manifestBlob)}">`);
+        document.head.insertAdjacentHTML('beforeend', `<link rel="apple-touch-icon" href="${manifest.icons[0].src}">`);
+
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                self.addEventListener('install', e => self.skipWaiting());
+                self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+                self.addEventListener('fetch', e => {
+                    // PWA Offline básica
+                });
+            `;
+            const swBlob = new Blob([swCode], {type: 'application/javascript'});
+            navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>console.log('SW no soportado'));
+        }
+
+        // ================= FIREBASE =================
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+        import { getFirestore, enableIndexedDbPersistence, collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
-        // TUS CREDENCIALES DE FIREBASE (NO CAMBIAR)
-        const myFirebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
             authDomain: "fixlew.firebaseapp.com",
             projectId: "fixlew",
@@ -251,481 +404,464 @@
         let app, auth, db;
         let currentUserId = null;
         const appId = "fixlew_app"; 
-        let tickets = []; // Array local de trabajos
+        let tickets = []; 
+        let inventory = []; 
+        let currentEditingId = null;
+        let currentStatusFilter = 'activo';
+        let currentBase64Photo = null;
 
-        // Función para parsear dinero (Convierte "105.000,50" a 105000.50)
-        function parseMoneyInput(value) {
-            if (!value) return 0;
-            let strVal = String(value).trim();
-            strVal = strVal.replace(/\./g, ''); // Elimina puntos de miles
-            strVal = strVal.replace(/,/g, '.'); // Convierte coma a punto decimal
-            const num = parseFloat(strVal);
-            return isNaN(num) ? 0 : num;
+        // Parseador Inteligente de Dinero (Soporta punto y coma)
+        function parseMoneyInput(val) {
+            if (!val) return 0;
+            let cleaned = val.toString().trim();
+            // Si el usuario escribe 105.000 (sin decimales), quitamos el punto.
+            // Si escribe 105,50, la coma pasa a ser punto.
+            cleaned = cleaned.replace(/\./g, '');
+            cleaned = cleaned.replace(/,/g, '.');
+            return parseFloat(cleaned) || 0;
         }
 
-        // ================= INICIALIZACIÓN =================
-        async function initApp() {
-            try {
-                // Iniciar Firebase
-                app = initializeApp(myFirebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
+        }
 
-                // Activar Persistencia Offline para la PWA
-                try {
-                    await enableIndexedDbPersistence(db);
-                    console.log("Modo Offline Activado");
-                } catch (err) {
-                    console.log("El modo offline falló (normal si tienes múltiples pestañas):", err);
+        function removeSplash() {
+            const splash = document.getElementById('splash-screen');
+            splash.style.opacity = '0';
+            setTimeout(() => splash.style.display = 'none', 500);
+        }
+
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            // Habilitar Offline persistence para PWA real
+            enableIndexedDbPersistence(db).catch(err => console.log("Offline Info:", err.code));
+
+            // Iniciar sesión SIEMPRE de forma anónima a tu propia BD
+            signInAnonymously(auth).catch((error) => {
+                document.getElementById('config-alert').classList.remove('hidden');
+                document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error';
+                document.getElementById('splash-text').innerText = "Error de Autenticación";
+                setTimeout(removeSplash, 1500);
+            });
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    document.getElementById('config-alert').classList.add('hidden');
+                    document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> Conectado';
+                    loadTickets(); 
+                    loadInventory(); 
+                    removeSplash(); // Ocultar splash al tener conexión
                 }
+            });
 
-                // Autenticar Anónimamente a la fuerza (Ignorando entornos de prueba)
-                try {
-                    await signInAnonymously(auth);
-                } catch (authErr) {
-                    console.error("Error Auth Anónimo:", authErr);
-                    if(authErr.code === 'auth/operation-not-allowed') {
-                        document.getElementById('auth-status').innerHTML = '<span class="text-red-300 font-bold">¡Activa "Anónimo" en Firebase!</span>';
-                        document.getElementById('loadingOverlay').innerHTML = `<div class="p-6 text-center"><i class="ph ph-warning-circle text-5xl text-red-500 mb-2"></i><h2 class="font-bold text-lg mb-2">Error de Configuración</h2><p class="text-sm text-gray-600">Por favor, ve a tu consola de Firebase > Authentication > Sign-in method, y activa el proveedor <b>Anónimo</b>.</p></div>`;
-                    }
-                    return;
-                }
+        } catch (error) {
+            console.error("Firebase Init Error:", error);
+            removeSplash();
+        }
 
-                // Listener de estado de sesión
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        currentUserId = user.uid;
-                        document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> Conectado';
-                        loadTickets(); // Cargar base de datos
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error inicializando app:", error);
-                document.getElementById('auth-status').innerText = "Error local";
+        window.switchTab = (tabName) => {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'active');
+                if(btn.id !== 'nav-nuevo') btn.classList.add('text-gray-400');
+            });
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            if(tabName !== 'nuevo') {
+                const activeBtn = document.getElementById(`nav-${tabName}`);
+                activeBtn.classList.remove('text-gray-400');
+                activeBtn.classList.add('text-blue-600', 'active');
             }
-        }
+        };
 
-        // ================= GESTIÓN DE DATOS =================
         function loadTickets() {
             const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-            const q = query(ticketsRef, orderBy('dateIntake', 'desc'));
+            const q = query(ticketsRef, orderBy('createdAt', 'desc'));
 
             onSnapshot(q, (snapshot) => {
                 tickets = [];
                 snapshot.forEach((doc) => {
                     tickets.push({ id: doc.id, ...doc.data() });
                 });
-                
                 renderTickets();
-                renderResumen();
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }, (error) => {
-                console.error("Error al escuchar cambios:", error);
-                document.getElementById('auth-status').innerText = "Sin conexión";
-            });
-        }
-
-        // Obtener el siguiente número de servicio
-        function getNextServiceNumber() {
-            if (tickets.length === 0) return "01";
-            // Extraer números y encontrar el mayor
-            let max = 0;
-            tickets.forEach(t => {
-                const num = parseInt(t.serviceNumber, 10);
-                if (!isNaN(num) && num > max) max = num;
-            });
-            return String(max + 1).padStart(2, '0');
-        }
-
-        // Guardar Nuevo Trabajo
-        document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const originalBtnHtml = submitBtn.innerHTML;
-            
-            // UI Feedback
-            submitBtn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
-            submitBtn.disabled = true;
-
-            try {
-                const newTicket = {
-                    serviceNumber: getNextServiceNumber(),
-                    clientName: document.getElementById('t-clientName').value.trim(),
-                    deviceCategory: document.getElementById('t-category').value,
-                    deviceBrand: document.getElementById('t-brand').value.trim(),
-                    deviceModel: document.getElementById('t-model').value.trim(),
-                    issueDescription: document.getElementById('t-issue').value.trim(),
-                    accessories: document.getElementById('t-accessories').value.trim() || '',
-                    advancePayment: parseMoneyInput(document.getElementById('t-advance').value),
-                    price: parseMoneyInput(document.getElementById('t-price').value),
-                    status: 'Pendiente',
-                    dateIntake: new Date().toISOString(),
-                    serviceDetails: '',
-                    partsCost: 0,
-                    isFullyPaid: false
-                };
-
-                const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
-                
-                // Sistema anticongelamiento (Race condition) maximo 3 segundos
-                const savePromise = addDoc(ticketsRef, newTicket);
-                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 3000));
-                
-                await Promise.race([savePromise, timeoutPromise]);
-                // Si hay internet malo, el guardado se queda en background, pero destrabamos la UI.
-
-                e.target.reset(); // Limpiar formulario
-                switchTab('activos'); // Volver al inicio
-
-            } catch (error) {
-                console.error("Error al guardar ticket:", error);
-                alert("Ocurrió un error al guardar. Verifica tu conexión.");
-            } finally {
-                // SIEMPRE restablecer el botón
-                submitBtn.innerHTML = originalBtnHtml;
-                submitBtn.disabled = false;
-            }
-        });
-
-        // ================= INTERFAZ Y RENDERIZADO =================
-        
-        function getStatusColor(status) {
-            switch(status) {
-                case 'Pendiente': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                case 'En Proceso': return 'bg-blue-100 text-blue-800 border-blue-200';
-                case 'Reparado': return 'bg-green-100 text-green-800 border-green-200';
-                case 'Entregado': return 'bg-gray-100 text-gray-800 border-gray-200';
-                case 'Cancelado': return 'bg-red-100 text-red-800 border-red-200';
-                default: return 'bg-gray-100 text-gray-800';
-            }
-        }
-
-        function formatDate(isoString) {
-            if(!isoString) return '--';
-            const d = new Date(isoString);
-            return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
-        }
-
-        function createTicketCard(ticket) {
-            const isHistorical = ticket.status === 'Entregado' || ticket.status === 'Cancelado';
-            
-            return `
-                <div onclick="window.openTicketModal('${ticket.id}')" class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer active:scale-[0.98]">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">
-                                #${ticket.serviceNumber}
-                            </span>
-                            <h3 class="font-bold text-gray-800 text-sm line-clamp-1">${ticket.clientName}</h3>
-                        </div>
-                        <span class="text-[10px] font-semibold px-2 py-1 rounded border ${getStatusColor(ticket.status)}">
-                            ${ticket.status}
-                        </span>
-                    </div>
-                    
-                    <p class="text-sm text-gray-600 mb-1 flex items-center gap-1">
-                        <i class="ph ph-device-mobile"></i> ${ticket.deviceBrand} ${ticket.deviceModel}
-                    </p>
-                    <p class="text-xs text-gray-500 line-clamp-1 italic">
-                        "${ticket.issueDescription}"
-                    </p>
-                    
-                    <div class="mt-3 pt-3 border-t flex justify-between items-center text-xs text-gray-400 font-medium">
-                        <span class="flex items-center gap-1"><i class="ph ph-calendar"></i> Ingreso: ${formatDate(ticket.dateIntake)}</span>
-                        ${isHistorical ? `<span class="flex items-center gap-1 text-gray-500"><i class="ph ph-check-circle"></i> Fin: ${formatDate(ticket.dateDelivered)}</span>` : ''}
-                    </div>
-                </div>
-            `;
+                calculateSummary();
+            }, (error) => console.error("Error tickets:", error));
         }
 
         function renderTickets() {
             const listActivos = document.getElementById('list-activos');
             const listHistorial = document.getElementById('list-historial');
-            
-            let activosHTML = '';
-            let historialHTML = '';
-            let activosCount = 0;
+            let activosHTML = ''; let historialHTML = ''; let activosCount = 0;
 
             tickets.forEach(t => {
-                if(t.status === 'Entregado' || t.status === 'Cancelado') {
-                    historialHTML += createTicketCard(t);
-                } else {
-                    activosHTML += createTicketCard(t);
-                    activosCount++;
-                }
+                const date = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'short'});
+                
+                // Formateo ID #001
+                const ticketNum = t.ticketNumber ? String(t.ticketNumber).padStart(3, '0') : '000';
+                
+                const card = `
+                    <div onclick="openModal('${t.id}')" class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition cursor-pointer">
+                        <div class="flex items-center gap-4">
+                            <div class="bg-blue-50 text-blue-600 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">
+                                ${ticketNum}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">${t.marca} ${t.modelo}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">${date}</span>
+                            <div class="mt-1">
+                                ${t.status === 'activo' 
+                                    ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full inline-block shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>' 
+                                    : '<i class="ph-fill ph-check-circle text-gray-300 text-lg"></i>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                if (t.status === 'activo') { activosHTML += card; activosCount++; }
+                else { historialHTML += card; }
             });
 
-            listActivos.innerHTML = activosHTML || '<div class="text-center py-8 text-gray-400 text-sm"><i class="ph ph-files text-4xl mb-2"></i><p>No hay trabajos activos</p></div>';
-            listHistorial.innerHTML = historialHTML || '<div class="text-center py-8 text-gray-400 text-sm"><i class="ph ph-archive text-4xl mb-2"></i><p>Historial vacío</p></div>';
+            listActivos.innerHTML = activosHTML || '<div class="text-center py-10 text-gray-400 text-sm"><i class="ph ph-coffee text-5xl mb-2 text-gray-300"></i><p>No hay trabajos activos</p></div>';
+            listHistorial.innerHTML = historialHTML || '<div class="text-center py-10 text-gray-400 text-sm"><p>Historial vacío</p></div>';
             document.getElementById('count-activos').innerText = activosCount;
         }
 
-        // ================= PESTAÑA RESUMEN =================
-        function renderResumen() {
-            const month = document.getElementById('r-month').value;
-            const year = document.getElementById('r-year').value;
+        // Guardar Nuevo Trabajo
+        document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-nuevo');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Guardando...';
+            btn.disabled = true;
 
-            let totalIngresos = 0;
-            let totalCostos = 0;
+            try {
+                // Autoincremento simple (Busca el último número y le suma 1)
+                const lastTicket = tickets.reduce((max, t) => (t.ticketNumber > max ? t.ticketNumber : max), 0);
+                
+                const newTicket = {
+                    ticketNumber: lastTicket + 1,
+                    cliente: document.getElementById('f-nombre').value,
+                    tipo: document.getElementById('f-tipo').value,
+                    marca: document.getElementById('f-marca').value,
+                    modelo: document.getElementById('f-modelo').value,
+                    problema: document.getElementById('f-problema').value,
+                    accesorios: document.getElementById('f-accesorios').value,
+                    precio: parseMoneyInput(document.getElementById('f-precio').value),
+                    anticipo: parseMoneyInput(document.getElementById('f-anticipo').value),
+                    costoRepuestos: 0,
+                    pagadoTotalmente: false,
+                    status: 'activo',
+                    createdAt: new Date().toISOString()
+                };
 
-            tickets.forEach(ticket => {
-                // Analizamos solo los que no están cancelados y tienen fecha de ingreso
-                if(ticket.status === 'Cancelado' || !ticket.dateIntake) return;
+                const ticketsRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'tickets');
+                
+                // Promise.race para evitar cuelgues si no hay internet (3 seg de max)
+                await Promise.race([
+                    addDoc(ticketsRef, newTicket),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000))
+                ]).catch(err => {
+                    if(err.message === "timeout") console.log("Guardado local offline");
+                    else throw err;
+                });
+                
+                e.target.reset();
+                switchTab('activos');
+            } catch (err) {
+                console.error(err);
+                alert("Error: Asegúrate de tener buena conexión y estar registrado.");
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        });
 
-                const date = new Date(ticket.dateIntake);
-                const m = String(date.getMonth() + 1).padStart(2, '0');
-                const y = String(date.getFullYear());
+        window.openModal = (id) => {
+            const ticket = tickets.find(t => t.id === id);
+            if (!ticket) return;
+            
+            currentEditingId = id;
+            currentStatusFilter = ticket.status;
+            
+            document.getElementById('m-title').innerText = `Ticket #${String(ticket.ticketNumber || 0).padStart(3, '0')}`;
+            document.getElementById('m-cliente').innerText = ticket.cliente;
+            document.getElementById('m-equipo').innerText = `${ticket.tipo} ${ticket.marca} ${ticket.modelo}`;
+            document.getElementById('m-falla').innerText = ticket.problema;
+            document.getElementById('m-fecha').innerText = new Date(ticket.createdAt).toLocaleDateString();
+            
+            // Valores financieros
+            document.getElementById('m-costo').value = ticket.costoRepuestos || 0;
+            document.getElementById('m-precio').value = ticket.precio || 0;
+            document.getElementById('m-anticipo').value = ticket.anticipo || 0;
+            document.getElementById('m-pagado').checked = ticket.pagadoTotalmente || false;
 
-                if (m === month && y === year) {
-                    
-                    // Sumamos costo de repuestos
-                    totalCostos += (ticket.partsCost || 0);
+            updateRestaModal();
+            updateStatusButtons();
 
-                    // Si está totalmente pagado, sumamos el precio completo. 
-                    // Si no, sumamos solo lo que dejó de anticipo.
-                    if (ticket.isFullyPaid) {
-                        totalIngresos += (ticket.price || 0);
-                    } else {
-                        totalIngresos += (ticket.advancePayment || 0);
-                    }
-                }
+            // Listeners interactivos
+            ['m-precio', 'm-anticipo', 'm-costo'].forEach(id => {
+                document.getElementById(id).oninput = updateRestaModal;
             });
 
-            const ganancia = totalIngresos - totalCostos;
-            
-            const formatMoney = (amount) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
-
-            document.getElementById('r-ingresos').textContent = formatMoney(totalIngresos);
-            document.getElementById('r-costos').textContent = formatMoney(totalCostos);
-            
-            const gEl = document.getElementById('r-ganancia');
-            gEl.textContent = formatMoney(ganancia);
-            gEl.className = ganancia >= 0 ? "text-3xl font-black text-blue-600" : "text-3xl font-black text-red-600";
-        }
-
-        // Listeners para cambiar resumen
-        document.getElementById('r-month').addEventListener('change', renderResumen);
-        document.getElementById('r-year').addEventListener('change', renderResumen);
-        
-        // Auto-seleccionar mes y año actual
-        const now = new Date();
-        document.getElementById('r-month').value = String(now.getMonth() + 1).padStart(2, '0');
-        document.getElementById('r-year').value = String(now.getFullYear());
-
-
-        // ================= GESTIÓN DEL MODAL (DETALLE DE TICKET) =================
-        let currentTicketId = null;
-
-        window.openTicketModal = (id) => {
-            const ticket = tickets.find(t => t.id === id);
-            if(!ticket) return;
-            currentTicketId = id;
-
-            document.getElementById('m-serviceNumber').innerText = `#${ticket.serviceNumber}`;
-            
-            // Rellenar contenido del modal
-            const html = `
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col gap-1">
-                    <span class="text-xs text-blue-600 font-bold uppercase tracking-wider">Cliente</span>
-                    <span class="text-lg font-bold text-gray-800">${ticket.clientName}</span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 mt-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Estado de Reparación</label>
-                        <select id="m-status" class="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="Pendiente" ${ticket.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                            <option value="En Proceso" ${ticket.status === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
-                            <option value="Reparado" ${ticket.status === 'Reparado' ? 'selected' : ''}>Reparado</option>
-                            <option value="Entregado" ${ticket.status === 'Entregado' ? 'selected' : ''}>Entregado</option>
-                            <option value="Cancelado" ${ticket.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Equipo</label>
-                        <div class="w-full px-3 py-2 border rounded-lg bg-gray-100 text-sm text-gray-600 truncate">
-                            ${ticket.deviceBrand} ${ticket.deviceModel}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-4">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Motivo de Ingreso</label>
-                    <div class="w-full px-3 py-3 border rounded-lg bg-gray-50 text-sm text-gray-700">
-                        ${ticket.issueDescription}
-                    </div>
-                </div>
-
-                ${ticket.accessories ? `
-                <div class="mt-2">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Accesorios</label>
-                    <div class="w-full px-3 py-2 border rounded-lg bg-gray-50 text-sm text-gray-700">
-                        ${ticket.accessories}
-                    </div>
-                </div>` : ''}
-
-                <div class="mt-4 space-y-2">
-                    <label class="block text-xs font-medium text-gray-500">Detalle de Trabajo Realizado (Interno)</label>
-                    <textarea id="m-details" rows="3" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder-gray-400" placeholder="Anota aquí qué le hiciste al equipo...">${ticket.serviceDetails || ''}</textarea>
-                </div>
-
-                <!-- Sección Finanzas -->
-                <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
-                    <h4 class="font-bold text-gray-700 text-sm flex items-center gap-1"><i class="ph ph-currency-dollar"></i> Finanzas</h4>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Costo de Repuestos Gastado ($)</label>
-                        <input type="text" inputmode="decimal" id="m-parts" value="${ticket.partsCost || ''}" placeholder="0" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-red-400 text-sm">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Precio Total a Cobrar al Cliente ($)</label>
-                        <input type="text" inputmode="decimal" id="m-price" value="${ticket.price || ''}" placeholder="0" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 font-bold text-gray-800">
-                    </div>
-
-                    <div class="bg-blue-100 p-3 rounded-lg border border-blue-200 flex items-center justify-between">
-                        <span class="text-sm text-blue-800 font-medium">Anticipo dejado:</span>
-                        <span class="text-sm font-bold text-blue-900">$ ${ticket.advancePayment || 0}</span>
-                    </div>
-
-                    <!-- Confirmación de Pago -->
-                    <label class="flex items-center gap-3 p-3 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition shadow-sm">
-                        <input type="checkbox" id="m-isFullyPaid" ${ticket.isFullyPaid ? 'checked' : ''} class="w-5 h-5 text-green-600 rounded focus:ring-green-500">
-                        <span class="text-sm font-semibold text-gray-700">Confirmar saldo totalmente abonado</span>
-                    </label>
-                </div>
-            `;
-            
-            document.getElementById('modalBody').innerHTML = html;
-            
-            // Mostrar Modal con animación
+            // Animación de entrada
             const modal = document.getElementById('ticketModal');
             const content = document.getElementById('modalContent');
             modal.classList.remove('hidden');
-            // Pequeño delay para que aplique la transición CSS
             setTimeout(() => {
                 modal.classList.remove('opacity-0');
-                content.classList.remove('modal-closed');
-                content.classList.add('modal-open');
+                content.classList.remove('translate-y-full');
             }, 10);
         };
 
         window.closeModal = () => {
             const modal = document.getElementById('ticketModal');
             const content = document.getElementById('modalContent');
-            
             modal.classList.add('opacity-0');
-            content.classList.remove('modal-open');
-            content.classList.add('modal-closed');
-            
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                currentTicketId = null;
-            }, 300);
+            content.classList.add('translate-y-full');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            currentEditingId = null;
         };
 
-        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        window.setModalStatus = (status) => {
+            currentStatusFilter = status;
+            updateStatusButtons();
+        };
 
-        // Actualizar Ticket desde el Modal
-        document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
-            if(!currentTicketId) return;
+        function updateStatusButtons() {
+            const btnAct = document.getElementById('btn-status-activo');
+            const btnEnt = document.getElementById('btn-status-entregado');
             
+            btnAct.className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'activo' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400'}`;
+            btnEnt.className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'entregado' ? 'bg-gray-200 text-gray-800 shadow-sm' : 'text-gray-400'}`;
+        }
+
+        function updateRestaModal() {
+            const precio = parseMoneyInput(document.getElementById('m-precio').value);
+            const anticipo = parseMoneyInput(document.getElementById('m-anticipo').value);
+            const resta = Math.max(0, precio - anticipo);
+            document.getElementById('m-resta').innerText = formatMoney(resta);
+        }
+
+        // Guardar Edición del Ticket
+        document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
+            if (!currentEditingId) return;
             const btn = e.currentTarget;
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentTicketId);
-                const currentStatus = document.getElementById('m-status').value;
-                
-                const updatedData = {
-                    status: currentStatus,
-                    serviceDetails: document.getElementById('m-details').value.trim(),
-                    partsCost: parseMoneyInput(document.getElementById('m-parts').value),
-                    price: parseMoneyInput(document.getElementById('m-price').value),
-                    isFullyPaid: document.getElementById('m-isFullyPaid').checked
-                };
-
-                // Si se marca como entregado, guardar la fecha
-                if(currentStatus === 'Entregado') {
-                    const ticket = tickets.find(t => t.id === currentTicketId);
-                    if(!ticket.dateDelivered) updatedData.dateDelivered = new Date().toISOString();
-                }
-
-                // Race condition para guardado rápido offline/online
-                const updatePromise = updateDoc(docRef, updatedData);
-                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve('timeout'), 2000));
-                await Promise.race([updatePromise, timeoutPromise]);
-                
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'tickets', currentEditingId);
+                await updateDoc(docRef, {
+                    costoRepuestos: parseMoneyInput(document.getElementById('m-costo').value),
+                    precio: parseMoneyInput(document.getElementById('m-precio').value),
+                    anticipo: parseMoneyInput(document.getElementById('m-anticipo').value),
+                    pagadoTotalmente: document.getElementById('m-pagado').checked,
+                    status: currentStatusFilter
+                });
                 closeModal();
-            } catch (error) {
-                console.error("Error al actualizar:", error);
-                alert("Error al actualizar. Verifica conexión.");
+            } catch (err) {
+                console.error(err); alert("Error al guardar los cambios.");
             } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                btn.innerHTML = originalText; btn.disabled = false;
             }
         });
 
-        // ================= UTILIDADES UI =================
-        window.switchTab = (tabId) => {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
-            
-            document.getElementById('tab-' + tabId).classList.add('active');
-            document.getElementById('nav-' + tabId).classList.add('active');
+        function loadInventory() {
+            const inventoryRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory');
+            const q = query(inventoryRef, orderBy('name', 'asc'));
 
-            if(tabId === 'resumen') renderResumen();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
-
-        // Arrancar
-        initApp();
-
-        // ================= CONFIGURACIÓN PWA =================
-        // Se genera un manifest.json dinámico para que se pueda instalar
-        const manifest = {
-            name: "Fixlew PWA",
-            short_name: "Fixlew",
-            start_url: ".",
-            display: "standalone",
-            background_color: "#f3f4f6",
-            theme_color: "#2563EB",
-            icons: [
-                {
-                    src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiBmaWxsPSIjMjU2M0VCIiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+PHBhdGggZD0iTTE3NiwxNkg4MEEyNCwyNCwwLDAsMCw1Niw0MFYyMTZhMjQsMjQsMCwwLDAsMjQsMjRoOTZhMjQsMjQsMCwwLDAsMjQtMjRWNDBBMjQsMjQsMCwwLDAsMTc2LDE2Wk04MCwzMmg5NmE4LDgsMCwwLDEsOCw4djE2SDcyVjQwQTgsOCwwLDAsMSw4MCwzMlptOTYsMTkySDgwYTgsOCwwLDAsMS04LThWNzJIMTg0VjIxNkE4LDgsMCwwLDEsMTc2LDIyNFoiPjwvcGF0aD48cGF0aCBkPSJNMTY4LjI1LDk4LjI1YTIzLjk0LDIzLjk0LDAsMCwwLTMzLjkxLDBsLTE0Ljg4LDE0Ljg4LTI5LjI3LTkuNzZhOCw4LDAsMCwwLTkuODUsMTFsMjAuNDcsNDAuOTRhNy45Miw3LjkyLDAsMCwwLDQuODYsNGwzNy0xMi4zM2E4LDgsMCwwLDAsNC41Mi0xMS40NWwtMTMuNi0yMy43OSwxNC42Ni0xNC42NmEyNCwyNCwwLDAsMCwwLTMzLjlaIj48L3BhdGg+PC9zdmc+",
-                    sizes: "192x192",
-                    type: "image/svg+xml"
-                }
-            ]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(manifestBlob);
-        document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
-        document.head.insertAdjacentHTML('beforeend', `<link rel="apple-touch-icon" href="${manifest.icons[0].src}">`);
-
-        // Service Worker (Para que funcione sin internet)
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                const CACHE_NAME = 'fixlew-v3';
-                self.addEventListener('install', e => {
-                    self.skipWaiting();
+            onSnapshot(q, (snapshot) => {
+                inventory = [];
+                snapshot.forEach((doc) => {
+                    inventory.push({ id: doc.id, ...doc.data() });
                 });
-                self.addEventListener('activate', e => {
-                    e.waitUntil(clients.claim());
-                });
-                self.addEventListener('fetch', e => {
-                    // El SDK de Firebase Firestore (IndexedDB) maneja el offline de los datos.
-                    // Aquí solo permitimos que el navegador decida cachear los archivos estáticos básicos.
-                });
-            `;
-            const swBlob = new Blob([swCode], {type: 'application/javascript'});
-            navigator.serviceWorker.register(URL.createObjectURL(swBlob))
-                .catch(err => console.log('SW registration failed:', err));
+                renderInventory();
+            }, (error) => console.error("Error inventario:", error));
         }
+
+        // Compresor de Fotos 
+        document.getElementById('i-photo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIZE = 400; 
+                    let width = img.width; let height = img.height;
+
+                    if (width > height && width > MAX_SIZE) {
+                        height *= MAX_SIZE / width; width = MAX_SIZE;
+                    } else if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height; height = MAX_SIZE;
+                    }
+
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    currentBase64Photo = canvas.toDataURL('image/jpeg', 0.6);
+                    
+                    document.getElementById('i-photo-placeholder').classList.add('hidden');
+                    const preview = document.getElementById('i-photo-preview-container');
+                    preview.classList.remove('hidden'); preview.classList.add('flex');
+                    document.getElementById('i-photo-preview').src = currentBase64Photo;
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        window.openAddInventoryModal = () => {
+            currentBase64Photo = null;
+            document.getElementById('inventoryForm').reset();
+            document.getElementById('i-photo-placeholder').classList.remove('hidden');
+            document.getElementById('i-photo-preview-container').classList.add('hidden');
+            document.getElementById('i-photo-preview-container').classList.remove('flex');
+            
+            const modal = document.getElementById('inventoryModal');
+            const content = document.getElementById('inventoryModalContent');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('translate-y-full');
+            }, 10);
+        };
+
+        window.closeInventoryModal = () => {
+            const modal = document.getElementById('inventoryModal');
+            const content = document.getElementById('inventoryModalContent');
+            modal.classList.add('opacity-0');
+            content.classList.add('translate-y-full');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        // Guardar Nuevo Item de Inventario
+        document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
+            const name = document.getElementById('i-name').value.trim();
+            const qty = parseInt(document.getElementById('i-quantity').value) || 0;
+            if(!name) return alert("Por favor, ingresa el nombre del repuesto.");
+
+            const btn = e.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
+
+            try {
+                const newItem = {
+                    name: name, quantity: qty,
+                    cost: parseMoneyInput(document.getElementById('i-cost').value),
+                    photoBase64: currentBase64Photo || "",
+                    dateAdded: new Date().toISOString()
+                };
+
+                const invRef = collection(db, 'artifacts', appId, 'users', currentUserId, 'inventory');
+                await addDoc(invRef, newItem);
+                closeInventoryModal();
+            } catch (err) {
+                console.error(err); alert("Error al guardar.");
+            } finally {
+                btn.innerHTML = originalText; btn.disabled = false;
+            }
+        });
+
+        window.updateStock = async (id, step) => {
+            const item = inventory.find(i => i.id === id);
+            if(!item) return;
+            let newQty = item.quantity + step;
+            if(newQty < 0) newQty = 0;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUserId, 'inventory', id);
+                await updateDoc(docRef, { quantity: newQty });
+            } catch(e) { console.error(e); }
+        };
+
+        function renderInventory() {
+            const list = document.getElementById('list-inventario');
+            let html = '';
+
+            inventory.forEach(item => {
+                const photoHtml = item.photoBase64 
+                    ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-xl border-b border-gray-100">`
+                    : `<div class="w-full h-28 bg-gray-100 flex flex-col items-center justify-center rounded-t-xl border-b border-gray-100 text-gray-400"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
+
+                html += `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col">
+                        ${photoHtml}
+                        <div class="p-3 flex-1 flex flex-col">
+                            <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${item.name}</h3>
+                            <p class="text-[11px] text-green-600 font-bold mt-1 bg-green-50 self-start px-2 py-0.5 rounded">${formatMoney(item.cost)}</p>
+                            
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-gray-50 mt-3">
+                                <button onclick="updateStock('${item.id}', -1)" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center active:bg-red-100 transition shadow-sm border border-red-100"><i class="ph ph-minus"></i></button>
+                                <span class="font-black text-gray-800 text-lg">${item.quantity}</span>
+                                <button onclick="updateStock('${item.id}', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center active:bg-blue-100 transition shadow-sm border border-blue-100"><i class="ph ph-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html || '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph-fill ph-box-arrow-down text-5xl mb-2 text-gray-300"></i><p>Tu stock está vacío</p></div>';
+        }
+
+        function populateSummarySelectors() {
+            const mesSelect = document.getElementById('r-mes');
+            const anoSelect = document.getElementById('r-ano');
+            
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            mesSelect.innerHTML = meses.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+            
+            const currentYear = new Date().getFullYear();
+            anoSelect.innerHTML = [currentYear-1, currentYear, currentYear+1].map(y => `<option value="${y}">${y}</option>`).join('');
+            
+            mesSelect.value = new Date().getMonth();
+            anoSelect.value = currentYear;
+
+            mesSelect.addEventListener('change', calculateSummary);
+            anoSelect.addEventListener('change', calculateSummary);
+        }
+
+        function calculateSummary() {
+            const mesObj = parseInt(document.getElementById('r-mes').value);
+            const anoObj = parseInt(document.getElementById('r-ano').value);
+
+            let totalIngresos = 0;
+            let totalGastos = 0;
+
+            tickets.forEach(t => {
+                const date = new Date(t.createdAt);
+                if (date.getMonth() === mesObj && date.getFullYear() === anoObj) {
+                    totalGastos += (t.costoRepuestos || 0);
+
+                    // Si está pagado totalmente suma el precio total, si no, solo la seña.
+                    if (t.pagadoTotalmente) {
+                        totalIngresos += (t.precio || 0);
+                    } else {
+                        totalIngresos += (t.anticipo || 0);
+                    }
+                }
+            });
+
+            const neta = totalIngresos - totalGastos;
+
+            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresos);
+            document.getElementById('r-gastos').innerText = formatMoney(totalGastos);
+            document.getElementById('r-ganancia').innerText = formatMoney(neta);
+        }
+
+        // Init App UI
+        populateSummarySelectors();
     </script>
 </body>
 </html>
