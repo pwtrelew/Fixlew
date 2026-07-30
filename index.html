@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fixlew</title>
     
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
@@ -12,8 +12,13 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f3f4f6; margin: 0; overscroll-behavior-y: none; }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            margin: 0; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
         .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
         .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
         .tab-content.active { display: block; }
@@ -31,60 +36,16 @@
             border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        #toast-container { position: fixed; top: env(safe-area-inset-top, 20px); left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 10px; align-items: center; width: 90%; pointer-events: none; }
-        .toast { background: #333; color: white; padding: 12px 20px; border-radius: 99px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transform: translateY(-20px); transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); display: flex; align-items: center; gap: 8px; }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        .toast-success { background: #10B981; }
-        .toast-error { background: #EF4444; }
 
-        /* Clases para el Long Press (Toque Prolongado) */
-        .select-none { -webkit-user-select: none; user-select: none; }
-        
-        .ticket-actions { opacity: 0; transform: translateX(10px); pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-        .show-actions .ticket-actions { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        
-        .inv-actions { opacity: 0; transform: translateY(-5px); pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-        .show-actions .inv-actions { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        /* Toast Notifications */
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; gap: 10px; width: 90%; max-w: 350px; pointer-events: none; }
+        .toast { background: #333; color: white; padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideDown 0.3s ease-out forwards; }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast.hide { animation: fadeOut 0.3s ease-in forwards; }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden text-gray-800 relative">
-
-    <div id="toast-container"></div>
-
-    <!-- Cuadro de Diálogo Personalizado (Reemplazo de confirm) -->
-    <div id="custom-confirm" class="fixed inset-0 bg-black/60 z-[99999] hidden opacity-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none">
-        <div id="custom-confirm-content" class="bg-white rounded-2xl p-5 w-11/12 max-w-sm transform scale-95 opacity-0 transition-all duration-200 shadow-2xl pointer-events-auto">
-            <div class="flex items-center gap-3 mb-2">
-                <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                    <i class="ph-fill ph-warning-circle text-2xl"></i>
-                </div>
-                <h3 id="c-title" class="text-lg font-black text-gray-800"></h3>
-            </div>
-            <p id="c-message" class="text-sm text-gray-600 mb-6 pl-13"></p>
-            <div class="flex gap-3">
-                <button onclick="closeConfirm()" class="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 active:bg-gray-200 transition">Cancelar</button>
-                <button onclick="acceptConfirm()" class="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 shadow-md shadow-red-600/30 active:bg-red-700 transition">Aceptar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cartel de Error de Reglas de Firebase -->
-    <div id="firebase-rules-warning" class="hidden bg-red-600 text-white p-5 shadow-2xl text-sm text-center fixed top-0 w-full z-[10000] flex flex-col items-center">
-        <p class="font-black text-xl mb-2 flex items-center gap-2"><i class="ph-fill ph-warning-circle text-2xl"></i> BASE DE DATOS BLOQUEADA</p>
-        <p class="mb-3 font-medium">Tus datos no se pueden guardar. Ve a tu consola de Firebase > <b>Firestore Database</b> > <b>Reglas</b>, reemplaza todo el texto por esto y dale a "Publicar":</p>
-        <div class="bg-red-900 p-3 rounded-lg text-left text-xs font-mono w-full max-w-md overflow-x-auto shadow-inner relative">
-            <code class="whitespace-pre">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}</code>
-        </div>
-        <button onclick="document.getElementById('firebase-rules-warning').classList.add('hidden')" class="mt-4 bg-white text-red-600 px-4 py-2 rounded-full font-bold shadow-md">Entendido</button>
-    </div>
+<body class="text-gray-800 bg-gray-50">
 
     <div id="splash-screen">
         <i class="ph-fill ph-wrench text-white text-6xl mb-4"></i>
@@ -93,7 +54,9 @@ service cloud.firestore {
         <p class="text-blue-200 text-sm mt-4 font-medium" id="splash-text">Conectando a la nube...</p>
     </div>
 
-    <header class="bg-blue-600 text-white p-4 shadow-md z-10 shrink-0 pt-safe flex justify-between items-center">
+    <div id="toast-container"></div>
+
+    <header class="fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 shadow-md z-40 pt-safe flex justify-between items-center h-[64px]">
         <div>
             <h1 class="text-xl font-bold flex items-center gap-2">
                 <i class="ph-fill ph-wrench"></i> Fixlew
@@ -102,25 +65,37 @@ service cloud.firestore {
                 <i class="ph ph-spinner animate-spin"></i> Conectando...
             </p>
         </div>
+        <button class="w-10 h-10 rounded-full bg-blue-700/50 flex items-center justify-center active:bg-blue-800 transition">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Ccircle cx='128' cy='128' r='96' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Ccircle cx='128' cy='120' r='40' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M63.8,199.4a72,72,0,0,1,128.4,0' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E" class="w-6 h-6 opacity-80">
+        </button>
     </header>
 
-    <main class="flex-1 overflow-y-auto bg-gray-50 p-4 relative">
+    <!-- mt-[64px] empuja el contenido debajo del header, mb-[90px] deja espacio para que nada se esconda tras el menu -->
+    <main class="w-full relative p-4 mt-[64px] mb-[90px]">
         
-        <div id="tab-activos" class="tab-content active space-y-3 pb-20">
+        <div id="auth-error-box" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-xl mb-4 shadow-sm text-sm">
+            <p class="font-bold mb-1"><i class="ph-fill ph-warning-circle"></i> Dominio no autorizado</p>
+            <p>La base de datos bloqueó la conexión. Ve a Firebase > Authentication > Configuración > <b>Dominios autorizados</b> y agrega exactamente esto:</p>
+            <code id="auth-domain-text" class="block bg-red-200 p-2 rounded-lg mt-2 font-mono text-center font-bold text-red-800 select-all"></code>
+        </div>
+
+        <div id="tab-activos" class="tab-content active space-y-3 pb-6">
             <div class="flex justify-between items-end mb-2">
                 <h2 class="text-lg font-bold text-gray-700">Trabajos en Taller</h2>
                 <span class="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-md" id="count-activos">0</span>
             </div>
-            <p class="text-[10px] text-gray-400 font-medium italic mb-2 text-center">💡 Mantén presionado un trabajo para eliminarlo</p>
             <div id="list-activos" class="space-y-3"></div>
         </div>
 
-        <div id="tab-historial" class="tab-content space-y-3 pb-20">
-            <h2 class="text-lg font-bold text-gray-700 mb-2">Trabajos Entregados</h2>
+        <div id="tab-historial" class="tab-content space-y-3 pb-6">
+            <div class="flex justify-between items-end mb-2">
+                <h2 class="text-lg font-bold text-gray-700">Trabajos Entregados</h2>
+                <span class="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-md" id="count-historial">0</span>
+            </div>
             <div id="list-historial" class="space-y-3"></div>
         </div>
 
-        <div id="tab-nuevo" class="tab-content max-w-lg mx-auto pb-24">
+        <div id="tab-nuevo" class="tab-content max-w-lg mx-auto pb-6">
             <h2 class="text-lg font-bold text-gray-700 mb-4">Ingresar Nuevo Equipo</h2>
             <form id="newTicketForm" class="space-y-4">
                 
@@ -159,13 +134,9 @@ service cloud.firestore {
                             <label class="block text-xs font-medium text-gray-500 mb-1">Problema Reportado / Motivo *</label>
                             <textarea id="f-problema" required rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white"></textarea>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Accesorios dejados (Opcional)</label>
-                            <input type="text" id="f-accesorios" placeholder="Ej: Funda, cargador..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
-                        </div>
                         
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mt-2 mb-1">Foto del Equipo / Estado (Opcional)</label>
+                            <label class="block text-xs font-medium text-gray-500 mt-2 mb-1">Foto del Equipo (Opcional)</label>
                             <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
                                 <input type="file" id="f-photo" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                                 <div id="f-photo-preview-container" class="hidden flex-col items-center justify-center">
@@ -181,32 +152,28 @@ service cloud.firestore {
                     </div>
                 </div>
 
-                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                    <h3 class="text-xs font-bold text-blue-600 mb-3 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-currency-dollar"></i> Finanzas Iniciales</h3>
-                    <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-xs font-bold text-blue-600 mb-1 flex items-center gap-1 uppercase tracking-wider"><i class="ph ph-currency-dollar"></i> Finanzas</h3>
+                    
+                    <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1">Presupuesto ($)</label>
-                            <input type="text" inputmode="decimal" id="f-precio" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white text-gray-800 font-bold">
+                            <input type="text" inputmode="decimal" id="f-precio" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 font-bold">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Costo Repuestos ($)</label>
-                            <input type="text" inputmode="decimal" id="f-costo" placeholder="0" class="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm bg-red-50 text-red-700 font-bold">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo ($)</label>
+                            <input type="text" inputmode="decimal" id="f-anticipo" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 font-bold text-green-600">
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Anticipo / Seña ($)</label>
-                        <input type="text" inputmode="decimal" id="f-anticipo" placeholder="0" class="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 outline-none text-sm bg-green-50 text-green-700 font-bold">
                     </div>
                     
-                    <div class="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
-                        <div class="bg-gray-50 p-2 rounded-lg text-center">
-                            <span class="block text-[10px] text-gray-400 font-bold uppercase">Restará Cobrar</span>
-                            <span id="f-preview-resta" class="block font-black text-blue-600">$ 0</span>
-                        </div>
-                        <div class="bg-gray-50 p-2 rounded-lg text-center border border-dashed border-gray-200">
-                            <span class="block text-[10px] text-gray-400 font-bold uppercase">Ganancia Estimada</span>
-                            <span id="f-preview-ganancia" class="block font-black text-green-600">$ 0</span>
-                        </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Costo de Repuestos ($)</label>
+                        <input type="text" inputmode="decimal" id="f-costo" placeholder="0" class="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm bg-red-50 font-bold text-red-600">
+                    </div>
+
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 flex justify-between items-center mt-2">
+                        <span class="text-sm font-bold text-gray-600">Ganancia Neta:</span>
+                        <span id="f-ganancia-preview" class="font-black text-lg text-blue-600">$ 0</span>
                     </div>
                 </div>
 
@@ -216,189 +183,196 @@ service cloud.firestore {
             </form>
         </div>
 
-        <div id="tab-inventario" class="tab-content space-y-4 pb-24">
+        <div id="tab-inventario" class="tab-content space-y-4 pb-6">
             <div class="flex justify-between items-end mb-2">
                 <h2 class="text-lg font-bold text-gray-700">Inventario</h2>
-                <button onclick="openAddInventoryModal()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-md hover:bg-blue-700 active:scale-[0.95] transition flex items-center gap-1">
-                    <i class="ph ph-plus"></i> Agregar
+                <button onclick="openInventoryModal()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-md hover:bg-blue-700 active:scale-[0.95] transition flex items-center gap-1">
+                    <i class="ph ph-plus"></i> Nuevo
                 </button>
             </div>
             
-            <div class="relative mb-2">
+            <div class="relative mb-3">
                 <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
-                <input type="text" id="search-inventario" placeholder="Buscar repuesto por nombre..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white">
+                <input type="text" id="search-inventario" placeholder="Buscar repuesto..." class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white font-medium">
             </div>
-            <p class="text-[10px] text-gray-400 font-medium italic mb-2 text-center">💡 Mantén presionado un repuesto para editar o borrar</p>
             
             <div id="list-inventario" class="grid grid-cols-2 gap-3 pb-4"></div>
         </div>
 
-        <div id="tab-resumen" class="tab-content pb-24">
+        <div id="tab-clientes" class="tab-content space-y-4 pb-6">
+            <h2 class="text-lg font-bold text-gray-700 mb-2">Directorio de Clientes</h2>
+            <div class="relative mb-3">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg"></i>
+                <input type="text" id="search-clientes" placeholder="Buscar cliente..." class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white font-medium">
+            </div>
+            <div id="list-clientes" class="space-y-3 pb-4"></div>
+        </div>
+
+        <div id="tab-resumen" class="tab-content pb-6">
             <h2 class="text-lg font-bold text-gray-700 mb-4">Resumen Financiero</h2>
             
             <div class="flex gap-2 mb-4">
-                <select id="r-mes" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium shadow-sm outline-none"></select>
-                <select id="r-ano" class="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium shadow-sm outline-none"></select>
+                <select id="r-mes" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white font-bold shadow-sm outline-none text-gray-700"></select>
+                <select id="r-ano" class="w-28 px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white font-bold shadow-sm outline-none text-gray-700"></select>
             </div>
 
-            <div class="bg-gradient-to-r from-blue-600 to-blue-800 p-4 rounded-xl shadow-md mb-4 text-white">
-                <p class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1 flex items-center gap-1"><i class="ph-fill ph-calendar-check"></i> Total Anual (<span id="r-ano-label"></span>)</p>
-                <p id="r-ganancia-anual" class="text-3xl font-black">$ 0</p>
-                <p class="text-[10px] text-blue-200 mt-1">Suma de ganancias netas de todo el año.</p>
+            <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-5 rounded-2xl shadow-lg mb-4 text-white text-center">
+                <p class="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Ganancia Anual (<span id="lbl-ano-actual"></span>)</p>
+                <p id="r-anual" class="text-4xl font-black">$ 0</p>
             </div>
 
-            <h3 class="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center gap-1"><i class="ph-fill ph-calendar"></i> Balance del Mes</h3>
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div class="bg-white border border-gray-100 p-3 rounded-xl text-center shadow-sm">
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-up text-green-500"></i> Ingresos</p>
-                    <p id="r-ingresos" class="text-base font-black text-gray-800">$ 0</p>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-up text-green-500"></i> Cobrado</p>
+                    <p id="r-ingresos" class="text-lg font-black text-gray-800">$ 0</p>
                 </div>
-                <div class="bg-white border border-gray-100 p-3 rounded-xl text-center shadow-sm">
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-down text-red-500"></i> Repuestos</p>
-                    <p id="r-gastos" class="text-base font-black text-gray-800">$ 0</p>
+                <div class="bg-white border border-gray-100 p-4 rounded-xl text-center shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1"><i class="ph-fill ph-trend-down text-red-500"></i> Costos</p>
+                    <p id="r-gastos" class="text-lg font-black text-gray-800">$ 0</p>
                 </div>
             </div>
 
-            <div class="bg-white border-2 border-blue-100 p-4 rounded-xl text-center shadow-sm mb-5">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Ganancia Neta Mensual</p>
-                <p id="r-ganancia" class="text-2xl font-black text-blue-600">$ 0</p>
+            <div class="bg-white border-2 border-blue-100 p-4 rounded-xl text-center shadow-sm mb-6">
+                <p class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1">Ganancia del Mes</p>
+                <p id="r-ganancia" class="text-3xl font-black text-blue-700">$ 0</p>
             </div>
 
-            <div class="mb-2 flex justify-between items-end">
-                <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1"><i class="ph-fill ph-list-dashes"></i> Detalle de Reparaciones</h3>
-                <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-1 rounded-md font-bold" id="r-count-trabajos">0</span>
-            </div>
-            <div id="r-detalle-lista" class="space-y-3">
-                <!-- Items listados aquí -->
-            </div>
+            <h3 class="font-bold text-gray-700 mb-3 text-sm flex items-center gap-2"><i class="ph-fill ph-list-dashes"></i> Detalle de Trabajos (<span id="r-count-month">0</span>)</h3>
+            <div id="list-resumen-detalles" class="space-y-3 pb-8"></div>
         </div>
     </main>
 
-    <nav class="bg-white border-t border-gray-200 flex justify-between items-center pb-safe pt-1 px-1 shadow-[0_-2px_15px_rgba(0,0,0,0.03)] z-20 shrink-0 h-16">
-        <button onclick="switchTab('activos')" id="nav-activos" class="bottom-nav-item active flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
-            <i class="ph-fill ph-wrench text-[22px] mb-0.5"></i>
-            <span class="text-[10px] font-medium">Activos</span>
+    <!-- ESTA ES LA MAGIA: position: fixed ancla la barra abajo, pase lo que pase -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-between items-center pb-safe pt-1 px-1 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] z-40 min-h-[64px]">
+        <button onclick="switchTab('activos')" id="nav-activos" class="bottom-nav-item active flex-1 flex flex-col items-center p-1 text-blue-600 transition">
+            <i class="ph-fill ph-wrench text-[20px] mb-0.5"></i><span class="text-[9px] font-bold">Activos</span>
         </button>
         <button onclick="switchTab('historial')" id="nav-historial" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
-            <i class="ph-fill ph-archive-box text-[22px] mb-0.5"></i>
-            <span class="text-[10px] font-medium">Historial</span>
+            <i class="ph-fill ph-archive-box text-[20px] mb-0.5"></i><span class="text-[9px] font-bold">Historial</span>
         </button>
-        <div class="flex-1 flex justify-center relative top-[-10px]">
+        <button onclick="switchTab('clientes')" id="nav-clientes" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
+            <i class="ph-fill ph-users text-[20px] mb-0.5"></i><span class="text-[9px] font-bold">Clientes</span>
+        </button>
+        
+        <div class="flex flex-col items-center justify-center relative top-[-15px] mx-1">
             <button onclick="switchTab('nuevo')" id="nav-nuevo" class="bottom-nav-item flex flex-col items-center justify-center text-gray-400 transition">
-                <div class="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.4)] active:scale-[0.95] transition">
+                <div class="bg-blue-600 text-white rounded-full w-11 h-11 flex items-center justify-center shadow-[0_4px_12px_rgba(37,99,235,0.4)] active:scale-[0.95] transition">
                     <i class="ph ph-plus text-2xl"></i>
                 </div>
-                <span class="text-[10px] mt-1 font-bold text-blue-600">Nuevo</span>
             </button>
         </div>
+
         <button onclick="switchTab('inventario')" id="nav-inventario" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
-            <i class="ph-fill ph-box-cube text-[22px] mb-0.5"></i>
-            <span class="text-[10px] font-medium">Stock</span>
+            <i class="ph-fill ph-box-cube text-[20px] mb-0.5"></i><span class="text-[9px] font-bold">Stock</span>
         </button>
         <button onclick="switchTab('resumen')" id="nav-resumen" class="bottom-nav-item flex-1 flex flex-col items-center p-1 text-gray-400 transition hover:text-blue-600">
-            <i class="ph-fill ph-chart-bar text-[22px] mb-0.5"></i>
-            <span class="text-[10px] font-medium">Resumen</span>
+            <i class="ph-fill ph-chart-bar text-[20px] mb-0.5"></i><span class="text-[9px] font-bold">Resumen</span>
         </button>
     </nav>
 
-    <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[50] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
-        <div id="modalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
-            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
-                <h2 class="text-lg font-black text-gray-800" id="m-title">Ticket #000</h2>
-                <button onclick="closeModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
+    <div id="ticketModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
+        <div id="modalContent" class="bg-gray-50 w-full rounded-t-3xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
+            
+            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-3xl shadow-sm">
+                <h2 class="text-xl font-black text-gray-800" id="m-title">Ticket #000</h2>
+                <button onclick="closeModal()" class="w-8 h-8 bg-gray-100 rounded-full flex justify-center items-center text-gray-600 active:bg-gray-200 transition">
                     <i class="ph ph-x text-lg"></i>
                 </button>
             </div>
             
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="bg-white p-1.5 rounded-lg border flex text-sm text-center shadow-sm font-medium">
-                    <button id="btn-status-activo" onclick="setModalStatus('activo')" class="flex-1 py-1.5 rounded-md transition text-gray-500">En Taller</button>
-                    <button id="btn-status-entregado" onclick="setModalStatus('entregado')" class="flex-1 py-1.5 rounded-md transition text-gray-500">Entregado</button>
+                <div class="bg-white p-1.5 rounded-xl border border-gray-200 flex text-sm text-center shadow-sm font-medium">
+                    <button id="btn-status-activo" onclick="setModalStatus('activo')" class="flex-1 py-2 rounded-lg transition text-gray-500">En Taller</button>
+                    <button id="btn-status-entregado" onclick="setModalStatus('entregado')" class="flex-1 py-2 rounded-lg transition text-gray-500">Entregado</button>
                 </div>
 
-                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-sm space-y-2">
-                    <p class="text-gray-500"><i class="ph ph-user"></i> Cliente: <span id="m-cliente" class="font-bold text-gray-800"></span></p>
-                    <p class="text-gray-500"><i class="ph ph-device-mobile"></i> Equipo: <span id="m-equipo" class="font-bold text-gray-800"></span></p>
-                    <p class="text-gray-500"><i class="ph ph-warning-circle"></i> Falla: <span id="m-falla" class="font-medium text-gray-800"></span></p>
-                    <p class="text-gray-500"><i class="ph ph-calendar"></i> Ingreso: <span id="m-fecha" class="text-gray-800"></span></p>
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-sm space-y-2.5">
+                    <p class="text-gray-500 flex items-center gap-2"><i class="ph-fill ph-user text-blue-500 text-lg"></i> <span id="m-cliente" class="font-bold text-gray-800 text-base"></span></p>
+                    <p class="text-gray-500 flex gap-2"><i class="ph-fill ph-device-mobile text-blue-500 text-lg"></i> <span id="m-equipo" class="font-semibold text-gray-700"></span></p>
+                    <p class="text-gray-500 flex gap-2"><i class="ph-fill ph-warning-circle text-red-400 text-lg"></i> <span id="m-falla" class="text-gray-700 bg-red-50 px-2 py-1 rounded-md flex-1"></span></p>
+                    <p class="text-gray-400 flex gap-2 text-xs font-medium"><i class="ph-fill ph-calendar text-gray-400 text-base"></i> Ingreso: <span id="m-fecha"></span></p>
                 </div>
 
-                <div id="m-photo-container" class="hidden bg-white p-2 rounded-xl border border-gray-100 shadow-sm mt-3">
+                <div id="m-photo-container" class="hidden bg-white p-2 rounded-2xl border border-gray-100 shadow-sm mt-3">
                     <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2"><i class="ph ph-camera"></i> Foto Adjunta</h3>
-                    <img id="m-photo" class="w-full h-48 object-contain bg-gray-50 rounded-lg border border-gray-100">
+                    <img id="m-photo" class="w-full h-48 object-contain bg-gray-50 rounded-xl border border-gray-100">
                 </div>
 
-                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Finanzas del Trabajo</h3>
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Finanzas del Trabajo</h3>
                     
-                    <div class="flex justify-between items-center border-b pb-2">
-                        <span class="text-sm text-gray-600">Costo Repuestos ($)</span>
-                        <input type="text" inputmode="decimal" id="m-costo" class="w-28 text-right font-bold text-red-600 border rounded px-2 py-1 outline-none focus:border-red-500 bg-red-50">
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                        <span class="text-sm font-medium text-gray-600">Costo Repuestos ($)</span>
+                        <input type="text" inputmode="decimal" id="m-costo" class="w-28 text-right font-bold text-red-600 border border-red-100 rounded-lg px-3 py-1.5 outline-none focus:border-red-500 bg-red-50 transition">
                     </div>
-                    <div class="flex justify-between items-center border-b pb-2">
-                        <span class="text-sm text-gray-600">Precio a Cobrar ($)</span>
-                        <input type="text" inputmode="decimal" id="m-precio" class="w-28 text-right font-bold text-gray-800 border rounded px-2 py-1 outline-none bg-gray-50">
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                        <span class="text-sm font-medium text-gray-600">Precio a Cobrar ($)</span>
+                        <input type="text" inputmode="decimal" id="m-precio" class="w-28 text-right font-bold text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 outline-none bg-gray-50 transition">
                     </div>
-                    <div class="flex justify-between items-center border-b pb-2">
-                        <span class="text-sm text-gray-600">Anticipo Dejado ($)</span>
-                        <input type="text" inputmode="decimal" id="m-anticipo" class="w-28 text-right font-bold text-green-600 border rounded px-2 py-1 outline-none bg-green-50">
-                    </div>
-
-                    <div class="flex justify-between items-center pt-1">
-                        <span class="text-sm font-bold text-gray-800">Resta Cobrar:</span>
-                        <span id="m-resta" class="font-black text-xl text-blue-600">$ 0</span>
+                    <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                        <span class="text-sm font-medium text-gray-600">Anticipo Dejado ($)</span>
+                        <input type="text" inputmode="decimal" id="m-anticipo" class="w-28 text-right font-bold text-green-600 border border-green-100 rounded-lg px-3 py-1.5 outline-none bg-green-50 transition">
                     </div>
 
-                    <label class="flex items-center gap-2 mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer">
+                    <div class="flex justify-between items-center pt-2">
+                        <span class="text-sm font-black text-gray-800">Resta Cobrar:</span>
+                        <span id="m-resta" class="font-black text-2xl text-blue-600">$ 0</span>
+                    </div>
+
+                    <label class="flex items-center gap-3 mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl cursor-pointer active:bg-blue-100 transition">
                         <input type="checkbox" id="m-pagado" class="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
-                        <span class="text-sm font-bold text-blue-800">Confirmar saldo totalmente abonado</span>
+                        <span class="text-sm font-bold text-blue-800">Marcar saldo abonado (Entregar)</span>
                     </label>
                 </div>
             </div>
-            <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button id="saveModalBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
-                    <i class="ph ph-floppy-disk text-lg"></i> Guardar Cambios
+
+            <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_15px_rgba(0,0,0,0.05)] z-10">
+                <button id="saveModalBtn" class="flex-1 bg-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2 text-base">
+                    <i class="ph ph-floppy-disk text-xl"></i> Guardar Cambios
                 </button>
             </div>
         </div>
     </div>
 
     <div id="inventoryModal" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
-        <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-2xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
-            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-2xl">
-                <h2 class="text-lg font-black text-gray-800 flex items-center gap-2" id="inventoryModalTitle"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
-                <button onclick="closeInventoryModal()" class="p-2 bg-gray-100 rounded-full text-gray-600 active:bg-gray-200">
+        <div id="inventoryModalContent" class="bg-gray-50 w-full rounded-t-3xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
+            
+            <div class="flex justify-between items-center p-4 border-b bg-white shrink-0 rounded-t-3xl shadow-sm">
+                <h2 class="text-xl font-black text-gray-800" id="inv-modal-title"><i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto</h2>
+                <button onclick="closeInventoryModal()" class="w-8 h-8 bg-gray-100 rounded-full flex justify-center items-center text-gray-600 active:bg-gray-200 transition">
                     <i class="ph ph-x text-lg"></i>
                 </button>
             </div>
             
             <div class="flex-1 overflow-y-auto p-4">
                 <form id="inventoryForm" class="space-y-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre / Descripción *</label>
-                        <input type="text" id="i-name" required placeholder="Ej: Pantalla Moto G84" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Nombre / Descripción *</label>
+                        <input type="text" id="i-name" required placeholder="Ej: Pantalla Moto G84" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white font-medium">
                     </div>
                     
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-2 gap-3">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Cantidad *</label>
-                            <input type="number" id="i-quantity" required min="0" value="1" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Cantidad *</label>
+                            <input type="number" id="i-quantity" required min="0" value="1" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base font-bold bg-gray-50 text-center">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Costo ($)</label>
-                            <input type="text" inputmode="decimal" id="i-cost" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-gray-50 focus:bg-white">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Costo ($)</label>
+                            <input type="text" inputmode="decimal" id="i-cost" placeholder="0" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base font-bold bg-gray-50 text-center text-green-600">
                         </div>
                     </div>
 
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Foto (Opcional)</label>
-                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center relative overflow-hidden bg-gray-50 hover:bg-gray-100 transition">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Foto (Opcional)</label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center relative overflow-hidden bg-gray-50 active:bg-gray-100 transition">
                             <input type="file" id="i-photo" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                            
                             <div id="i-photo-preview-container" class="hidden flex-col items-center justify-center">
-                                <img id="i-photo-preview" class="h-28 object-contain rounded-md shadow-sm mb-2">
-                                <span class="text-xs text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded-full">Cambiar foto</span>
+                                <img id="i-photo-preview" class="h-32 object-contain rounded-lg shadow-sm mb-3 border border-gray-200">
+                                <span class="text-xs text-white font-bold bg-gray-800 px-4 py-2 rounded-full shadow-md"><i class="ph ph-camera"></i> Cambiar foto</span>
                             </div>
-                            <div id="i-photo-placeholder" class="flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+                            
+                            <div id="i-photo-placeholder" class="flex flex-col items-center justify-center text-gray-400 pointer-events-none py-4">
                                 <i class="ph-fill ph-camera text-4xl mb-2 text-gray-300"></i>
                                 <span class="text-sm font-medium text-gray-500">Toca para tomar foto</span>
                             </div>
@@ -407,11 +381,45 @@ service cloud.firestore {
                 </form>
             </div>
 
-            <div class="border-t bg-white p-4 shrink-0 flex gap-3 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <button id="saveInventoryBtn" class="flex-1 bg-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2">
-                    <i class="ph ph-plus-circle text-lg"></i> Guardar
+            <div class="border-t bg-white p-4 shrink-0 pb-safe shadow-[0_-4px_15px_rgba(0,0,0,0.05)] z-10">
+                <button id="saveInventoryBtn" class="w-full bg-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg active:bg-blue-700 active:scale-[0.98] transition flex justify-center items-center gap-2 text-base">
+                    <i class="ph ph-check-circle text-xl"></i> Guardar Repuesto
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="fixed inset-0 bg-black/60 z-[100] hidden opacity-0 flex items-center justify-center transition-opacity duration-200 px-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm transform scale-95 transition-transform duration-200 shadow-2xl" id="confirmBox">
+            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <i class="ph-fill ph-warning text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-black text-center text-gray-800 mb-2">¿Estás seguro?</h3>
+            <p class="text-center text-gray-500 text-sm mb-6 font-medium">Esta acción no se puede deshacer. El registro se eliminará permanentemente.</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3.5 bg-gray-100 text-gray-600 font-bold rounded-xl active:bg-gray-200 transition">Cancelar</button>
+                <button id="btn-confirm-delete" class="flex-1 py-3.5 bg-red-600 text-white font-bold rounded-xl active:bg-red-700 transition shadow-md">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clientModal" class="fixed inset-0 bg-black/60 z-[70] hidden opacity-0 flex flex-col justify-end pointer-events-none transition-opacity duration-200">
+        <div id="clientModalContent" class="bg-gray-50 w-full rounded-t-3xl h-[85vh] flex flex-col transform translate-y-full transition-transform duration-300 pointer-events-auto">
+            
+            <div class="flex items-center gap-4 p-4 border-b bg-white shrink-0 rounded-t-3xl shadow-sm">
+                <div class="bg-blue-600 text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-md">
+                    <i class="ph-fill ph-user"></i>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-lg font-black text-gray-800 leading-tight" id="cm-nombre">Nombre Cliente</h2>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-0.5">Historial Completo</p>
+                </div>
+                <button onclick="closeClientModal()" class="w-8 h-8 bg-gray-100 rounded-full flex justify-center items-center text-gray-600 active:bg-gray-200 transition">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="cm-history-list"></div>
         </div>
     </div>
 
@@ -420,7 +428,15 @@ service cloud.firestore {
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONEXION LIMPIA AL PROYECTO - FORZADA
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? '<i class="ph-fill ph-check-circle text-green-400 text-lg"></i>' : '<i class="ph-fill ph-warning-circle text-red-400 text-lg"></i>';
+            toast.className = 'toast'; toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 300); }, 3000);
+        };
+
         const firebaseConfig = {
             apiKey: "AIzaSyBCYi6v_fmL9V16bgEhg5LZdYdOJ0qaiEI",
             authDomain: "fixlew.firebaseapp.com",
@@ -431,114 +447,45 @@ service cloud.firestore {
         };
 
         let app, auth, db;
-        let tickets = [], inventory = []; 
-        let currentEditingId = null, currentStatusFilter = 'activo';
+        let tickets = [], inventory = [], allClients = []; 
+        let currentEditingId = null, currentStatusFilter = 'activo', currentEditingInventoryId = null;
         let currentBase64Photo = null, currentTicketBase64Photo = null;
-        let editingInventoryId = null, searchInventoryTerm = ""; 
-        let pressTimer = null, isLongPress = false;
+        let pressTimer; let isPressing = false; let currentItemToDelete = null; let currentCollectionToDelete = null;
 
-        // Custom Confirm Logic
-        let confirmCallback = null;
-        window.openConfirm = (title, message, callback) => {
-            document.getElementById('c-title').innerText = title;
-            document.getElementById('c-message').innerText = message;
-            confirmCallback = callback;
-            
-            const m = document.getElementById('custom-confirm');
-            const c = document.getElementById('custom-confirm-content');
-            m.classList.remove('hidden');
-            setTimeout(() => { 
-                m.classList.remove('opacity-0'); 
-                c.classList.remove('scale-95', 'opacity-0'); 
-            }, 10);
-        };
-        window.closeConfirm = () => {
-            const m = document.getElementById('custom-confirm');
-            const c = document.getElementById('custom-confirm-content');
-            m.classList.add('opacity-0'); 
-            c.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => { m.classList.add('hidden'); }, 200);
-            confirmCallback = null;
-        };
-        window.acceptConfirm = () => {
-            if (confirmCallback) confirmCallback();
-            closeConfirm();
-        };
-
-        // UI Utilities
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-warning-circle'} text-lg"></i> ${message}`;
-            container.appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
-        }
-
-        function handleFirebaseError(error) {
-            console.error("Firebase Error:", error);
-            if (error.code === 'permission-denied') {
-                document.getElementById('firebase-rules-warning').classList.remove('hidden');
-            } else {
-                showToast("Error de red o permisos", "error");
-            }
-        }
-
-        function parseMoneyInput(val) {
-            if (!val) return 0;
-            let cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
-            return parseFloat(cleaned) || 0;
-        }
-
-        function formatMoney(amount) {
-            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0);
-        }
+        function parseMoneyInput(val) { if (!val) return 0; let cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.'); return parseFloat(cleaned) || 0; }
+        function formatMoney(amount) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount || 0); }
 
         function removeSplash() {
             const splash = document.getElementById('splash-screen');
-            splash.style.opacity = '0';
-            setTimeout(() => splash.style.display = 'none', 500);
+            splash.style.opacity = '0'; setTimeout(() => splash.style.display = 'none', 500);
         }
 
-        // INIT FIREBASE
         try {
             app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            
-            signInAnonymously(auth).catch((error) => {
-                console.error("Auth Error:", error);
-                document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-warning-circle text-red-300"></i> Error de Auth';
-                
-                let errorMsg = '<span class="text-red-300 font-bold">Error: No se pudo conectar a Firebase</span>';
-                
-                // Si el error es por el dominio, mostramos qué dominio hay que agregar
-                if (error.code === 'auth/unauthorized-domain') {
-                    errorMsg = `<div class="bg-red-900/50 p-3 rounded-lg mt-2 text-center text-xs text-white max-w-xs border border-red-500">
-                        <b>Firebase bloqueó este entorno.</b><br><br>
-                        Ve a Firebase > Authentication > <b>Configuración</b> > <b>Dominios autorizados</b>.<br>
-                        Agrega exactamente este dominio:<br>
-                        <b class="text-yellow-300 text-sm break-all">${window.location.hostname}</b>
-                    </div>`;
-                }
+            auth = getAuth(app); db = getFirestore(app);
 
-                document.getElementById('splash-text').innerHTML = errorMsg;
-                setTimeout(removeSplash, 6000); // Da tiempo a leer el error
-                showToast("Error de conexión: " + error.code, "error");
+            signInAnonymously(auth).catch((error) => {
+                console.error("Auth error:", error);
+                document.getElementById('auth-status').innerHTML = '<i class="ph ph-warning-circle text-red-300"></i> Error de Auth';
+                document.getElementById('splash-text').innerText = "Revisa Dominios Autorizados";
+                
+                const errBox = document.getElementById('auth-error-box');
+                const errText = document.getElementById('auth-domain-text');
+                errBox.classList.remove('hidden');
+                
+                if (error.code === 'auth/unauthorized-domain') { errText.innerText = window.location.hostname; } 
+                else { errText.innerText = error.message; }
+                setTimeout(removeSplash, 1000);
             });
 
             onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    document.getElementById('auth-error-box').classList.add('hidden');
                     document.getElementById('auth-status').innerHTML = '<i class="ph-fill ph-check-circle text-green-300"></i> En línea';
-                    loadTickets(); 
-                    loadInventory(); 
-                    removeSplash();
+                    loadTickets(); loadInventory(); removeSplash();
                 }
             });
-        } catch (error) {
-            removeSplash();
-        }
+        } catch (error) { console.error("Firebase Init Error:", error); removeSplash(); }
 
         window.switchTab = (tabName) => {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -549,173 +496,154 @@ service cloud.firestore {
             document.getElementById(`tab-${tabName}`).classList.add('active');
             if(tabName !== 'nuevo') {
                 const activeBtn = document.getElementById(`nav-${tabName}`);
-                activeBtn.classList.remove('text-gray-400');
-                activeBtn.classList.add('text-blue-600', 'active');
+                activeBtn.classList.remove('text-gray-400'); activeBtn.classList.add('text-blue-600', 'active');
             }
         };
 
-        // Touch & Long Press Logic
-        window.startPress = (el) => {
-            isLongPress = false;
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                document.querySelectorAll('.show-actions').forEach(e => e.classList.remove('show-actions')); // Hide others
-                el.classList.add('show-actions');
-                if (navigator.vibrate) navigator.vibrate(50);
-            }, 500);
+        window.startPress = function(e, id, type) {
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            isPressing = true;
+            pressTimer = setTimeout(() => { if (isPressing) showOptionsOverlay(id); }, 600);
         };
-        window.cancelPress = () => clearTimeout(pressTimer);
+        window.cancelPress = function() { isPressing = false; clearTimeout(pressTimer); };
         
-        // Hide actions when clicking outside
-        document.addEventListener('pointerdown', (e) => {
-            if (!e.target.closest('.show-actions')) {
-                document.querySelectorAll('.show-actions').forEach(el => el.classList.remove('show-actions'));
-            }
+        function showOptionsOverlay(id) {
+            document.querySelectorAll('[id^="overlay-"]').forEach(el => el.classList.add('hidden'));
+            const overlay = document.getElementById(`overlay-${id}`);
+            if (overlay) { overlay.classList.remove('hidden'); if (navigator.vibrate) navigator.vibrate(50); }
+        }
+        window.hideOverlay = function(id) {
+            const overlay = document.getElementById(`overlay-${id}`);
+            if (overlay) overlay.classList.add('hidden');
+        };
+
+        window.openConfirmModal = function(id, collectionName) {
+            hideOverlay(id); currentItemToDelete = id; currentCollectionToDelete = collectionName;
+            const modal = document.getElementById('confirmModal'); const box = document.getElementById('confirmBox');
+            modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+        };
+
+        window.closeConfirmModal = function() {
+            const modal = document.getElementById('confirmModal'); const box = document.getElementById('confirmBox');
+            modal.classList.add('opacity-0'); box.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); currentItemToDelete = null; }, 200);
+        };
+
+        document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+            if (!currentItemToDelete || !currentCollectionToDelete) return;
+            const btn = document.getElementById('btn-confirm-delete');
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>'; btn.disabled = true;
+
+            try {
+                const ref = doc(db, currentCollectionToDelete, currentItemToDelete);
+                await Promise.race([ deleteDoc(ref), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)) ]);
+                showToast("Registro eliminado correctamente");
+            } catch (err) { showToast("Error al eliminar", "error");
+            } finally { btn.innerHTML = 'Sí, eliminar'; btn.disabled = false; closeConfirmModal(); }
         });
 
-        // --- TICKETS ---
         function loadTickets() {
-            onSnapshot(collection(db, 'tickets'), (snapshot) => {
-                let tempTickets = [];
-                snapshot.forEach((doc) => tempTickets.push({ id: doc.id, ...doc.data() }));
-                tickets = tempTickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                renderTickets();
-                calculateSummary();
-            }, handleFirebaseError);
+            const ticketsRef = collection(db, 'tickets');
+            onSnapshot(ticketsRef, (snapshot) => {
+                tickets = []; snapshot.forEach((doc) => tickets.push({ id: doc.id, ...doc.data() }));
+                tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                renderTickets(); calculateSummary(); processClients();
+            }, (error) => showToast("Error cargando trabajos", "error"));
         }
 
-        window.handleTicketClick = (el, id, event) => {
-            if (isLongPress) { isLongPress = false; event.preventDefault(); return; }
-            if (event.target.closest('.action-btn')) return; // Ignore click if touching buttons
-            openModal(id);
-        };
-
-        window.deleteTicket = (id, event) => {
-            event.stopPropagation(); // prevent opening modal
-            openConfirm('Eliminar Orden', '¿Estás seguro de que deseas eliminar este trabajo? Esta acción no se puede deshacer.', async () => {
-                try {
-                    await deleteDoc(doc(db, 'tickets', id));
-                    showToast('Orden eliminada', 'success');
-                } catch(e) { handleFirebaseError(e); }
-            });
-        };
-
         function renderTickets() {
-            const listActivos = document.getElementById('list-activos');
-            const listHistorial = document.getElementById('list-historial');
-            let activosHTML = ''; let historialHTML = ''; let activosCount = 0;
+            const listActivos = document.getElementById('list-activos'); const listHistorial = document.getElementById('list-historial');
+            let activosHTML = ''; let historialHTML = ''; let activosCount = 0; let historialCount = 0;
 
             tickets.forEach(t => {
                 const date = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'short'});
                 const ticketNum = t.ticketNumber ? String(t.ticketNumber).padStart(3, '0') : '000';
+                const isActivo = t.status === 'activo';
                 
                 const card = `
-                    <div class="relative bg-white p-3.5 rounded-xl shadow-sm border border-gray-100 overflow-hidden select-none"
-                         onpointerdown="startPress(this)" onpointerup="cancelPress()" onpointerleave="cancelPress()" onpointercancel="cancelPress()" 
-                         onclick="handleTicketClick(this, '${t.id}', event)">
-                        <div class="flex items-center justify-between transition cursor-pointer">
+                    <div class="relative group" oncontextmenu="return false;">
+                        <div onclick="openModal('${t.id}')" onmousedown="startPress(event, '${t.id}', 'ticket')" onmouseup="cancelPress()" onmouseleave="cancelPress()" ontouchstart="startPress(event, '${t.id}', 'ticket')" ontouchend="cancelPress()" class="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition cursor-pointer select-none">
                             <div class="flex items-center gap-4">
-                                <div class="bg-blue-50 text-blue-600 w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border border-blue-100">${ticketNum}</div>
+                                <div class="${isActivo ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-gray-100 text-gray-500 border-gray-200'} w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg border">${ticketNum}</div>
                                 <div>
                                     <h3 class="font-bold text-gray-800 text-sm leading-tight">${t.cliente}</h3>
-                                    <p class="text-xs text-gray-500 mt-0.5">${t.marca} ${t.modelo}</p>
+                                    <p class="text-xs text-gray-500 mt-0.5 font-medium">${t.marca} ${t.modelo}</p>
                                 </div>
                             </div>
                             <div class="text-right">
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">${date}</span>
-                                <div class="mt-1">${t.status === 'activo' ? '<span class="w-2.5 h-2.5 bg-green-500 rounded-full inline-block shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>' : '<i class="ph-fill ph-check-circle text-gray-300 text-lg"></i>'}</div>
+                                <div class="mt-1">${isActivo ? '<span class="w-3 h-3 bg-green-500 rounded-full inline-block shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>' : '<i class="ph-fill ph-check-circle text-gray-300 text-xl"></i>'}</div>
                             </div>
                         </div>
-                        <div class="ticket-actions absolute top-0 right-0 h-full bg-white/95 backdrop-blur-sm border-l border-gray-100 flex items-center px-4 shadow-[-5px_0_15px_rgba(0,0,0,0.05)] z-10 rounded-r-xl">
-                             <button onclick="deleteTicket('${t.id}', event)" class="action-btn w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition">
-                                 <i class="ph-fill ph-trash text-lg"></i>
-                             </button>
+                        <div id="overlay-${t.id}" class="hidden absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-6 z-10 border border-gray-200 shadow-sm">
+                            <button onclick="openConfirmModal('${t.id}', 'tickets')" class="bg-red-50 text-red-600 p-3.5 rounded-full shadow-sm border border-red-100 hover:bg-red-100 transition"><i class="ph-fill ph-trash text-2xl"></i></button>
+                            <button onclick="hideOverlay('${t.id}')" class="bg-gray-100 text-gray-600 p-3.5 rounded-full shadow-sm hover:bg-gray-200 transition"><i class="ph ph-x text-2xl"></i></button>
                         </div>
                     </div>`;
-                if (t.status === 'activo') { activosHTML += card; activosCount++; }
-                else { historialHTML += card; }
+
+                if (isActivo) { activosHTML += card; activosCount++; } else { historialHTML += card; historialCount++; }
             });
 
-            listActivos.innerHTML = activosHTML || '<div class="text-center py-10 text-gray-400 text-sm"><i class="ph ph-coffee text-5xl mb-2 text-gray-300"></i><p>No hay trabajos activos</p></div>';
-            listHistorial.innerHTML = historialHTML || '<div class="text-center py-10 text-gray-400 text-sm"><p>Historial vacío</p></div>';
-            document.getElementById('count-activos').innerText = activosCount;
+            listActivos.innerHTML = activosHTML || '<div class="text-center py-12 text-gray-400"><i class="ph-fill ph-coffee text-5xl mb-2 text-gray-200"></i><p class="text-sm font-medium">No hay trabajos activos</p></div>';
+            listHistorial.innerHTML = historialHTML || '<div class="text-center py-12 text-gray-400"><p class="text-sm font-medium">Historial vacío</p></div>';
+            document.getElementById('count-activos').innerText = activosCount; document.getElementById('count-historial').innerText = historialCount;
         }
 
         function setupPhotoCompressor(inputId, previewId, placeholderId, containerId, callback) {
-            const inputEl = document.getElementById(inputId);
-            if (!inputEl) return;
+            const inputEl = document.getElementById(inputId); if (!inputEl) return; 
             inputEl.addEventListener('change', function(e) {
                 const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     const img = new Image();
                     img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const MAX_SIZE = 600; let width = img.width; let height = img.height;
+                        const canvas = document.createElement('canvas'); const MAX_SIZE = 600; 
+                        let width = img.width; let height = img.height;
                         if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } 
                         else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-                        canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const base64Str = canvas.toDataURL('image/jpeg', 0.6);
-                        callback(base64Str);
-                        document.getElementById(placeholderId).classList.add('hidden');
-                        const preview = document.getElementById(containerId);
-                        preview.classList.remove('hidden'); preview.classList.add('flex');
-                        document.getElementById(previewId).src = base64Str;
+                        canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
+                        const base64Str = canvas.toDataURL('image/jpeg', 0.6); callback(base64Str);
+                        document.getElementById(placeholderId).classList.add('hidden'); const preview = document.getElementById(containerId);
+                        preview.classList.remove('hidden'); preview.classList.add('flex'); document.getElementById(previewId).src = base64Str;
                     }
                     img.src = event.target.result;
                 }
                 reader.readAsDataURL(file);
             });
         }
+
         setupPhotoCompressor('f-photo', 'f-photo-preview', 'f-photo-placeholder', 'f-photo-preview-container', (b64) => currentTicketBase64Photo = b64);
         setupPhotoCompressor('i-photo', 'i-photo-preview', 'i-photo-placeholder', 'i-photo-preview-container', (b64) => currentBase64Photo = b64);
 
-        function updateNuevoPreview() {
-            const precio = parseMoneyInput(document.getElementById('f-precio').value);
+        function updateNewFormCalculations() {
+            const pres = parseMoneyInput(document.getElementById('f-precio').value);
             const costo = parseMoneyInput(document.getElementById('f-costo').value);
-            const anticipo = parseMoneyInput(document.getElementById('f-anticipo').value);
-            document.getElementById('f-preview-resta').innerText = formatMoney(Math.max(0, precio - anticipo));
-            document.getElementById('f-preview-ganancia').innerText = formatMoney(precio - costo);
+            document.getElementById('f-ganancia-preview').innerText = formatMoney(pres - costo);
         }
-        ['f-precio', 'f-costo', 'f-anticipo'].forEach(id => document.getElementById(id).addEventListener('input', updateNuevoPreview));
+        ['f-precio', 'f-costo'].forEach(id => document.getElementById(id).addEventListener('input', updateNewFormCalculations));
 
         document.getElementById('newTicketForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('btn-submit-nuevo');
-            const originalHtml = btn.innerHTML;
+            const btn = document.getElementById('btn-submit-nuevo'); const originalHtml = btn.innerHTML;
             btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Guardando...'; btn.disabled = true;
 
             try {
-                const lastTicket = tickets.reduce((max, t) => (t.ticketNumber > max ? t.ticketNumber : max), 0);
+                let maxNum = 0; tickets.forEach(t => { if(t.ticketNumber > maxNum) maxNum = t.ticketNumber; });
                 const newTicket = {
-                    ticketNumber: lastTicket + 1, cliente: document.getElementById('f-nombre').value,
-                    tipo: document.getElementById('f-tipo').value, marca: document.getElementById('f-marca').value,
-                    modelo: document.getElementById('f-modelo').value, problema: document.getElementById('f-problema').value,
-                    accesorios: document.getElementById('f-accesorios').value,
-                    precio: parseMoneyInput(document.getElementById('f-precio').value),
-                    costoRepuestos: parseMoneyInput(document.getElementById('f-costo').value),
-                    anticipo: parseMoneyInput(document.getElementById('f-anticipo').value),
-                    pagadoTotalmente: false, status: 'activo', photoBase64: currentTicketBase64Photo || "",
-                    createdAt: new Date().toISOString()
+                    ticketNumber: maxNum + 1, cliente: document.getElementById('f-nombre').value, tipo: document.getElementById('f-tipo').value,
+                    marca: document.getElementById('f-marca').value, modelo: document.getElementById('f-modelo').value, problema: document.getElementById('f-problema').value,
+                    precio: parseMoneyInput(document.getElementById('f-precio').value), anticipo: parseMoneyInput(document.getElementById('f-anticipo').value),
+                    costoRepuestos: parseMoneyInput(document.getElementById('f-costo').value), pagadoTotalmente: false, status: 'activo',
+                    photoBase64: currentTicketBase64Photo || "", createdAt: new Date().toISOString()
                 };
 
-                const savePromise = addDoc(collection(db, 'tickets'), newTicket);
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-                await Promise.race([savePromise, timeoutPromise]);
+                const ticketsRef = collection(db, 'tickets');
+                await Promise.race([ addDoc(ticketsRef, newTicket), new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)) ]);
                 
                 e.target.reset(); currentTicketBase64Photo = null;
-                document.getElementById('f-photo-placeholder').classList.remove('hidden');
-                document.getElementById('f-photo-preview-container').classList.add('hidden');
-                document.getElementById('f-photo-preview-container').classList.remove('flex');
-                updateNuevoPreview(); 
-                
-                showToast("Ingresado exitosamente"); switchTab('activos');
-            } catch (err) {
-                if (err.message === 'timeout') showToast("Error: La nube tardó en responder.", "error");
-                else handleFirebaseError(err);
-            } finally { btn.innerHTML = originalHtml; btn.disabled = false; }
+                document.getElementById('f-photo-placeholder').classList.remove('hidden'); document.getElementById('f-photo-preview-container').classList.add('hidden');
+                document.getElementById('f-ganancia-preview').innerText = "$ 0"; showToast("¡Ingreso guardado exitosamente!"); switchTab('activos');
+            } catch (err) { showToast("Error al guardar en la nube", "error"); } finally { btn.innerHTML = originalHtml; btn.disabled = false; }
         });
 
         window.openModal = (id) => {
@@ -723,158 +651,129 @@ service cloud.firestore {
             currentEditingId = id; currentStatusFilter = ticket.status;
             
             document.getElementById('m-title').innerText = `Ticket #${String(ticket.ticketNumber || 0).padStart(3, '0')}`;
-            document.getElementById('m-cliente').innerText = ticket.cliente;
-            document.getElementById('m-equipo').innerText = `${ticket.tipo} ${ticket.marca} ${ticket.modelo}`;
+            document.getElementById('m-cliente').innerText = ticket.cliente; document.getElementById('m-equipo').innerText = `${ticket.tipo} ${ticket.marca} ${ticket.modelo}`;
             document.getElementById('m-falla').innerText = ticket.problema;
-            document.getElementById('m-fecha').innerText = new Date(ticket.createdAt).toLocaleDateString();
+            document.getElementById('m-fecha').innerText = new Date(ticket.createdAt).toLocaleDateString('es-ES', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
             
-            const photoContainer = document.getElementById('m-photo-container');
-            if(ticket.photoBase64) { document.getElementById('m-photo').src = ticket.photoBase64; photoContainer.classList.remove('hidden'); } 
-            else { photoContainer.classList.add('hidden'); }
+            const photoContainer = document.getElementById('m-photo-container'); const photoImg = document.getElementById('m-photo');
+            if(ticket.photoBase64) { photoImg.src = ticket.photoBase64; photoContainer.classList.remove('hidden'); } else { photoContainer.classList.add('hidden'); }
 
-            document.getElementById('m-costo').value = ticket.costoRepuestos || 0;
-            document.getElementById('m-precio').value = ticket.precio || 0;
-            document.getElementById('m-anticipo').value = ticket.anticipo || 0;
-            document.getElementById('m-pagado').checked = ticket.pagadoTotalmente || false;
+            document.getElementById('m-costo').value = ticket.costoRepuestos || 0; document.getElementById('m-precio').value = ticket.precio || 0;
+            document.getElementById('m-anticipo').value = ticket.anticipo || 0; document.getElementById('m-pagado').checked = ticket.pagadoTotalmente || false;
 
             updateRestaModal(); updateStatusButtons();
-            ['m-precio', 'm-anticipo', 'm-costo'].forEach(i => document.getElementById(i).oninput = updateRestaModal);
-
-            const m = document.getElementById('ticketModal'); const c = document.getElementById('modalContent');
-            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+            const modal = document.getElementById('ticketModal'); const content = document.getElementById('modalContent');
+            modal.classList.remove('hidden'); setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('translate-y-full'); }, 10);
         };
 
         window.closeModal = () => {
-            const m = document.getElementById('ticketModal'); const c = document.getElementById('modalContent');
-            m.classList.add('opacity-0'); c.classList.add('translate-y-full');
-            setTimeout(() => m.classList.add('hidden'), 300); currentEditingId = null;
+            const modal = document.getElementById('ticketModal'); const content = document.getElementById('modalContent');
+            modal.classList.add('opacity-0'); content.classList.add('translate-y-full'); setTimeout(() => modal.classList.add('hidden'), 300); currentEditingId = null;
         };
 
         window.setModalStatus = (status) => { currentStatusFilter = status; updateStatusButtons(); };
 
         function updateStatusButtons() {
-            document.getElementById('btn-status-activo').className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'activo' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400'}`;
-            document.getElementById('btn-status-entregado').className = `flex-1 py-1.5 rounded-md transition font-bold ${currentStatusFilter === 'entregado' ? 'bg-gray-200 text-gray-800 shadow-sm' : 'text-gray-400'}`;
+            const btnAct = document.getElementById('btn-status-activo'); const btnEnt = document.getElementById('btn-status-entregado');
+            btnAct.className = `flex-1 py-2 rounded-lg transition font-bold ${currentStatusFilter === 'activo' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-400'}`;
+            btnEnt.className = `flex-1 py-2 rounded-lg transition font-bold ${currentStatusFilter === 'entregado' ? 'bg-gray-800 text-white shadow-sm' : 'text-gray-400'}`;
         }
 
         function updateRestaModal() {
-            const p = parseMoneyInput(document.getElementById('m-precio').value);
-            const a = parseMoneyInput(document.getElementById('m-anticipo').value);
+            const p = parseMoneyInput(document.getElementById('m-precio').value); const a = parseMoneyInput(document.getElementById('m-anticipo').value);
             document.getElementById('m-resta').innerText = formatMoney(Math.max(0, p - a));
         }
+        ['m-precio', 'm-anticipo', 'm-costo'].forEach(i => document.getElementById(i).addEventListener('input', updateRestaModal));
 
-        document.getElementById('m-pagado').addEventListener('change', (e) => {
-            if (e.target.checked && currentStatusFilter !== 'entregado') {
-                setModalStatus('entregado'); showToast("Cambiado a Entregado automáticamente");
-            }
-        });
+        document.getElementById('m-pagado').addEventListener('change', (e) => { if(e.target.checked) { setModalStatus('entregado'); showToast("Estado cambiado a Entregado"); } });
 
         document.getElementById('saveModalBtn').addEventListener('click', async (e) => {
             if (!currentEditingId) return;
-            const btn = e.currentTarget; const text = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
+            const btn = e.currentTarget; const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...'; btn.disabled = true;
 
             try {
-                const docRef = doc(db, 'tickets', currentEditingId);
-                const tActual = tickets.find(t => t.id === currentEditingId);
-                const updates = {
-                    costoRepuestos: parseMoneyInput(document.getElementById('m-costo').value),
-                    precio: parseMoneyInput(document.getElementById('m-precio').value),
-                    anticipo: parseMoneyInput(document.getElementById('m-anticipo').value),
-                    pagadoTotalmente: document.getElementById('m-pagado').checked,
-                    status: currentStatusFilter
+                const isDeliveredNow = (currentStatusFilter === 'entregado');
+                let updateData = { costoRepuestos: parseMoneyInput(document.getElementById('m-costo').value), precio: parseMoneyInput(document.getElementById('m-precio').value),
+                    anticipo: parseMoneyInput(document.getElementById('m-anticipo').value), pagadoTotalmente: document.getElementById('m-pagado').checked, status: currentStatusFilter
                 };
-                if (currentStatusFilter === 'entregado' && tActual && !tActual.deliveredAt) { updates.deliveredAt = new Date().toISOString(); }
-
-                const savePromise = updateDoc(docRef, updates);
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-                await Promise.race([savePromise, timeoutPromise]);
-
+                if (isDeliveredNow) { const ticket = tickets.find(t => t.id === currentEditingId); if(!ticket.deliveredAt) updateData.deliveredAt = new Date().toISOString(); }
+                const docRef = doc(db, 'tickets', currentEditingId);
+                await Promise.race([ updateDoc(docRef, updateData), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)) ]);
                 showToast("Cambios guardados"); closeModal();
-            } catch (err) { 
-                if (err.message === 'timeout') showToast("Error de conexión.", "error");
-                else handleFirebaseError(err); 
-            } finally { btn.innerHTML = text; btn.disabled = false; }
+            } catch (err) { showToast("Error al guardar", "error"); } finally { btn.innerHTML = originalText; btn.disabled = false; }
         });
 
-        // --- INVENTARIO ---
         function loadInventory() {
-            onSnapshot(collection(db, 'inventory'), (snapshot) => {
-                let tempInv = []; snapshot.forEach((doc) => tempInv.push({ id: doc.id, ...doc.data() }));
-                inventory = tempInv.sort((a, b) => a.name.localeCompare(b.name)); renderInventory();
-            }, handleFirebaseError);
+            const inventoryRef = collection(db, 'inventory');
+            onSnapshot(inventoryRef, (snapshot) => {
+                inventory = []; snapshot.forEach((doc) => inventory.push({ id: doc.id, ...doc.data() }));
+                inventory.sort((a, b) => a.name.localeCompare(b.name)); renderInventory(inventory);
+            });
         }
 
-        document.getElementById('search-inventario').addEventListener('input', (e) => { searchInventoryTerm = e.target.value.toLowerCase(); renderInventory(); });
+        document.getElementById('search-inventario').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase(); const filtered = inventory.filter(item => item.name.toLowerCase().includes(term)); renderInventory(filtered);
+        });
 
-        window.deleteInventoryItem = (id, event) => {
-            event.stopPropagation();
-            openConfirm('Eliminar Repuesto', '¿Estás seguro de que deseas eliminar este repuesto del stock?', async () => {
-                try {
-                    await deleteDoc(doc(db, 'inventory', id));
-                    showToast("Repuesto eliminado", 'success');
-                } catch(e) { handleFirebaseError(e); }
-            });
-        };
-
-        window.handleInvClick = (el, event) => {
-            if (isLongPress) { isLongPress = false; event.preventDefault(); }
-            // Do nothing on short tap for inventory card itself, buttons handle their own clicks
-        };
-
-        function renderInventory() {
+        function renderInventory(itemsToRender) {
             let html = '';
-            const filteredInventory = inventory.filter(item => item.name.toLowerCase().includes(searchInventoryTerm));
-            filteredInventory.forEach(item => {
-                const photo = item.photoBase64 ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-xl border-b border-gray-100 pointer-events-none">` : `<div class="w-full h-28 bg-gray-100 flex flex-col items-center justify-center rounded-t-xl border-b border-gray-100 text-gray-400 pointer-events-none"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
+            itemsToRender.forEach(item => {
+                const photoHtml = item.photoBase64 ? `<img src="${item.photoBase64}" class="w-full h-28 object-cover rounded-t-2xl border-b border-gray-100">` : `<div class="w-full h-28 bg-gray-50 flex flex-col items-center justify-center rounded-t-2xl border-b border-gray-100 text-gray-300"><i class="ph-fill ph-image text-4xl mb-1 opacity-50"></i></div>`;
                 html += `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group select-none"
-                         onpointerdown="startPress(this)" onpointerup="cancelPress()" onpointerleave="cancelPress()" onpointercancel="cancelPress()" onclick="handleInvClick(this, event)">
-                        ${photo}
-                        <div class="inv-actions absolute top-2 right-2 flex gap-1.5 z-10">
-                            <button onclick="deleteInventoryItem('${item.id}', event)" class="action-btn w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition">
-                                <i class="ph-fill ph-trash text-sm"></i>
-                            </button>
-                            <button onclick="openEditInventoryModal('${item.id}'); event.stopPropagation();" class="action-btn w-8 h-8 bg-white/95 text-gray-600 rounded-full flex items-center justify-center shadow-md border border-gray-200 active:scale-95 transition">
-                                <i class="ph-fill ph-pencil-simple text-sm"></i>
-                            </button>
+                    <div class="relative group select-none" oncontextmenu="return false;">
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full active:scale-[0.98] transition cursor-pointer" onmousedown="startPress(event, '${item.id}', 'inventory')" onmouseup="cancelPress()" onmouseleave="cancelPress()" ontouchstart="startPress(event, '${item.id}', 'inventory')" ontouchend="cancelPress()">
+                            ${photoHtml}
+                            <div class="p-3.5 flex-1 flex flex-col">
+                                <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${item.name}</h3>
+                                <p class="text-[11px] text-green-700 font-bold mt-1.5 bg-green-50 self-start px-2 py-0.5 rounded-md border border-green-100">${formatMoney(item.cost)}</p>
+                                <div class="mt-auto pt-3 flex items-center justify-between border-t border-gray-50 mt-3">
+                                    <button onclick="updateStock('${item.id}', -1); event.stopPropagation();" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm border border-red-100 active:bg-red-100"><i class="ph ph-minus"></i></button>
+                                    <span class="font-black text-gray-800 text-lg">${item.quantity}</span>
+                                    <button onclick="updateStock('${item.id}', 1); event.stopPropagation();" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100 active:bg-blue-100"><i class="ph ph-plus"></i></button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="p-3 flex-1 flex flex-col pointer-events-none">
-                            <h3 class="text-xs font-bold text-gray-800 line-clamp-2 leading-tight">${item.name}</h3>
-                            <p class="text-[11px] text-green-600 font-bold mt-1 bg-green-50 self-start px-2 py-0.5 rounded">${formatMoney(item.cost)}</p>
-                        </div>
-                        <div class="p-3 pt-0 mt-auto flex items-center justify-between border-t border-gray-50 mt-1">
-                            <button onclick="updateStock('${item.id}', -1)" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shadow-sm border border-red-100 active:scale-95 transition"><i class="ph ph-minus"></i></button>
-                            <span class="font-black text-gray-800 text-lg">${item.quantity}</span>
-                            <button onclick="updateStock('${item.id}', 1)" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100 active:scale-95 transition"><i class="ph ph-plus"></i></button>
+                        <div id="overlay-${item.id}" class="hidden absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-4 z-10 border border-gray-200 shadow-sm">
+                            <button onclick="openEditInventory('${item.id}')" class="bg-blue-50 text-blue-600 p-3 rounded-full shadow-sm border border-blue-100"><i class="ph-fill ph-pencil-simple text-xl"></i></button>
+                            <button onclick="openConfirmModal('${item.id}', 'inventory')" class="bg-red-50 text-red-600 p-3 rounded-full shadow-sm border border-red-100"><i class="ph-fill ph-trash text-xl"></i></button>
+                            <button onclick="hideOverlay('${item.id}')" class="bg-gray-100 text-gray-600 p-3 rounded-full shadow-sm"><i class="ph ph-x text-xl"></i></button>
                         </div>
                     </div>`;
             });
-            if (filteredInventory.length === 0) {
-                if (searchInventoryTerm) html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><p>No se encontraron resultados</p></div>';
-                else html = '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><p>Tu stock está vacío</p></div>';
-            }
-            document.getElementById('list-inventario').innerHTML = html;
+            document.getElementById('list-inventario').innerHTML = html || '<div class="col-span-2 text-center py-10 text-gray-400 text-sm"><i class="ph-fill ph-box-arrow-down text-5xl mb-2 text-gray-300"></i><p>Sin resultados en stock</p></div>';
         }
 
-        window.openAddInventoryModal = () => {
-            editingInventoryId = null; currentBase64Photo = null; document.getElementById('inventoryForm').reset();
-            document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto';
-            document.getElementById('i-photo-placeholder').classList.remove('hidden');
-            document.getElementById('i-photo-preview-container').classList.add('hidden');
-            const m = document.getElementById('inventoryModal'); const c = document.getElementById('inventoryModalContent');
-            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+        window.updateStock = async (id, step) => {
+            const item = inventory.find(i => i.id === id); if(!item) return;
+            try { await updateDoc(doc(db, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); } catch(e) {}
         };
 
-        window.openEditInventoryModal = (id) => {
-            const item = inventory.find(i => i.id === id); if(!item) return;
-            editingInventoryId = id; currentBase64Photo = item.photoBase64 || null;
-            document.getElementById('i-name').value = item.name; document.getElementById('i-quantity').value = item.quantity; document.getElementById('i-cost').value = item.cost;
-            const p = document.getElementById('i-photo-preview-container'); const ph = document.getElementById('i-photo-placeholder');
-            if (currentBase64Photo) { document.getElementById('i-photo-preview').src = currentBase64Photo; p.classList.remove('hidden'); p.classList.add('flex'); ph.classList.add('hidden'); } 
-            else { p.classList.add('hidden'); p.classList.remove('flex'); ph.classList.remove('hidden'); }
-            document.getElementById('inventoryModalTitle').innerHTML = '<i class="ph-fill ph-pencil-simple text-blue-600"></i> Editar Repuesto';
-            
+        window.openInventoryModal = () => {
+            currentEditingInventoryId = null; currentBase64Photo = null;
+            document.getElementById('inv-modal-title').innerHTML = '<i class="ph-fill ph-box-cube text-blue-600"></i> Nuevo Repuesto';
+            document.getElementById('inventoryForm').reset(); resetInventoryPhotoUI(); showInvModal();
+        };
+
+        window.openEditInventory = (id) => {
+            hideOverlay(id); const item = inventory.find(i => i.id === id); if(!item) return;
+            currentEditingInventoryId = id; document.getElementById('inv-modal-title').innerHTML = '<i class="ph-fill ph-pencil-simple text-blue-600"></i> Editar Repuesto';
+            document.getElementById('i-name').value = item.name; document.getElementById('i-quantity').value = item.quantity; document.getElementById('i-cost').value = item.cost || 0;
+            currentBase64Photo = item.photoBase64 || null;
+            if(currentBase64Photo) {
+                document.getElementById('i-photo-placeholder').classList.add('hidden');
+                const preview = document.getElementById('i-photo-preview-container'); preview.classList.remove('hidden'); preview.classList.add('flex');
+                document.getElementById('i-photo-preview').src = currentBase64Photo;
+            } else { resetInventoryPhotoUI(); }
+            showInvModal();
+        };
+
+        function resetInventoryPhotoUI() {
+            document.getElementById('i-photo-placeholder').classList.remove('hidden');
+            document.getElementById('i-photo-preview-container').classList.add('hidden'); document.getElementById('i-photo-preview-container').classList.remove('flex');
+        }
+
+        function showInvModal() {
             const m = document.getElementById('inventoryModal'); const c = document.getElementById('inventoryModalContent');
             m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
         }
@@ -886,27 +785,18 @@ service cloud.firestore {
 
         document.getElementById('saveInventoryBtn').addEventListener('click', async (e) => {
             const name = document.getElementById('i-name').value.trim(); if(!name) return showToast("Falta nombre", "error");
-            const btn = e.currentTarget; const txt = btn.innerHTML; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...'; btn.disabled = true;
-            const data = { name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0, cost: parseMoneyInput(document.getElementById('i-cost').value), photoBase64: currentBase64Photo || "" };
-            try {
-                const savePromise = editingInventoryId ? updateDoc(doc(db, 'inventory', editingInventoryId), data) : addDoc(collection(db, 'inventory'), data);
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-                await Promise.race([savePromise, timeoutPromise]);
+            const btn = e.currentTarget; const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...'; btn.disabled = true;
 
-                if (editingInventoryId) showToast("Actualizado"); else showToast("Agregado");
-                closeInventoryModal();
-            } catch (err) { 
-                if (err.message === 'timeout') showToast("Error de conexión.", "error");
-                else handleFirebaseError(err); 
-            } finally { btn.innerHTML = txt; btn.disabled = false; }
+            const data = { name: name, quantity: parseInt(document.getElementById('i-quantity').value) || 0, cost: parseMoneyInput(document.getElementById('i-cost').value), photoBase64: currentBase64Photo || "" };
+
+            try {
+                const prom = currentEditingInventoryId ? updateDoc(doc(db, 'inventory', currentEditingInventoryId), data) : addDoc(collection(db, 'inventory'), { ...data, dateAdded: new Date().toISOString() });
+                await Promise.race([prom, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000))]);
+                showToast("Repuesto guardado"); closeInventoryModal();
+            } catch (err) { showToast("Error al guardar", "error"); } finally { btn.innerHTML = originalText; btn.disabled = false; }
         });
 
-        window.updateStock = async (id, step) => {
-            const item = inventory.find(i => i.id === id); if(!item) return;
-            try { await updateDoc(doc(db, 'inventory', id), { quantity: Math.max(0, item.quantity + step) }); } catch(e) { handleFirebaseError(e); }
-        };
-
-        // --- RESUMEN ---
         function populateSummarySelectors() {
             const mesSelect = document.getElementById('r-mes'); const anoSelect = document.getElementById('r-ano');
             const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -919,39 +809,118 @@ service cloud.firestore {
 
         function calculateSummary() {
             const mesObj = parseInt(document.getElementById('r-mes').value); const anoObj = parseInt(document.getElementById('r-ano').value);
-            document.getElementById('r-ano-label').innerText = anoObj;
-            let totalIngresosMes = 0, totalGastosMes = 0, totalGananciaAnual = 0, detalleHTML = '', trabajosMesCount = 0;
-            const entregados = tickets.filter(t => t.status === 'entregado').sort((a, b) => new Date(b.deliveredAt || b.createdAt) - new Date(a.deliveredAt || a.createdAt));
+            document.getElementById('lbl-ano-actual').innerText = anoObj;
+            let totalMesIngresos = 0, totalMesGastos = 0, totalAnual = 0; let trabajosDelMes = [];
 
-            entregados.forEach(t => {
-                const fechaFin = new Date(t.deliveredAt || t.createdAt);
-                const tMes = fechaFin.getMonth(); const tAno = fechaFin.getFullYear();
-                const ingreso = t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0); const gasto = (t.costoRepuestos || 0); const ganancia = ingreso - gasto;
+            tickets.forEach(t => {
+                if (t.status === 'entregado') {
+                    const date = new Date(t.deliveredAt || t.createdAt);
+                    const ingreso = t.pagadoTotalmente ? (t.precio || 0) : (t.anticipo || 0);
+                    const gasto = (t.costoRepuestos || 0); const ganancia = ingreso - gasto;
 
-                if (tAno === anoObj) totalGananciaAnual += ganancia;
-                if (tMes === mesObj && tAno === anoObj) {
-                    totalGastosMes += gasto; totalIngresosMes += ingreso; trabajosMesCount++;
-                    const fechaIngreso = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
-                    const fechaEntrega = fechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
-                    detalleHTML += `
-                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 relative overflow-hidden">
-                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                            <div class="flex justify-between items-start border-b border-gray-50 pb-2 pl-2">
-                                <div><h4 class="font-bold text-gray-800 text-sm">${t.cliente}</h4><p class="text-[11px] text-gray-500 line-clamp-1">${t.tipo} - ${t.marca}</p></div>
-                                <div class="text-right text-sm"><span class="font-black text-green-600 block">${formatMoney(ganancia)}</span></div>
-                            </div>
-                            <div class="pl-2 flex justify-between text-[10px] text-gray-400 font-medium">
-                                <span><i class="ph-fill ph-download-simple"></i> Ingreso: ${fechaIngreso}</span>
-                                <span><i class="ph-fill ph-check-circle"></i> Entrega: ${fechaEntrega}</span>
-                            </div>
-                        </div>`;
+                    if (date.getFullYear() === anoObj) {
+                        totalAnual += ganancia; 
+                        if (date.getMonth() === mesObj) { totalMesIngresos += ingreso; totalMesGastos += gasto; trabajosDelMes.push({ ...t, gananciaNeta: ganancia, fechaFin: date }); }
+                    }
                 }
             });
-            document.getElementById('r-ingresos').innerText = formatMoney(totalIngresosMes); document.getElementById('r-gastos').innerText = formatMoney(totalGastosMes);
-            document.getElementById('r-ganancia').innerText = formatMoney(totalIngresosMes - totalGastosMes); document.getElementById('r-ganancia-anual').innerText = formatMoney(totalGananciaAnual);
-            document.getElementById('r-count-trabajos').innerText = trabajosMesCount;
-            document.getElementById('r-detalle-lista').innerHTML = detalleHTML || '<div class="text-center py-8 text-gray-400 text-sm"><p>No hay trabajos entregados este mes</p></div>';
+
+            document.getElementById('r-ingresos').innerText = formatMoney(totalMesIngresos); document.getElementById('r-gastos').innerText = formatMoney(totalMesGastos);
+            document.getElementById('r-ganancia').innerText = formatMoney(totalMesIngresos - totalMesGastos); document.getElementById('r-anual').innerText = formatMoney(totalAnual);
+            document.getElementById('r-count-month').innerText = trabajosDelMes.length;
+            renderDetallesResumen(trabajosDelMes);
         }
+
+        function renderDetallesResumen(trabajos) {
+            const list = document.getElementById('list-resumen-detalles'); let html = '';
+            trabajos.sort((a,b) => b.fechaFin - a.fechaFin).forEach(t => {
+                const fIngreso = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
+                const fFin = t.fechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
+                html += `
+                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex flex-col text-sm relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="font-bold text-gray-800">${t.cliente}</span>
+                            <span class="block text-[11px] text-gray-500">${t.tipo} ${t.marca}</span>
+                        </div>
+                        <span class="font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg border border-green-100 text-right">+ ${formatMoney(t.gananciaNeta)}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] text-gray-400 mt-1 border-t border-gray-50 pt-2 font-medium">
+                        <span>Ingresó: ${fIngreso}</span><span>Entregado: ${fFin}</span>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html || '<div class="text-center py-6 text-gray-400 text-xs font-medium">No se registran entregas este mes.</div>';
+        }
+
+        function processClients() {
+            const clientMap = new Map();
+            tickets.forEach(t => {
+                if (!t.cliente) return;
+                const name = t.cliente.trim(); const key = name.toLowerCase();
+                if (!clientMap.has(key)) { clientMap.set(key, { name: name, tickets: [] }); }
+                clientMap.get(key).tickets.push(t);
+            });
+            allClients = Array.from(clientMap.values()).sort((a, b) => a.name.localeCompare(b.name)); renderClientes(allClients);
+        }
+
+        document.getElementById('search-clientes').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase(); const filtered = allClients.filter(c => c.name.toLowerCase().includes(term)); renderClientes(filtered);
+        });
+
+        function renderClientes(clientsToRender) {
+            const list = document.getElementById('list-clientes'); let html = '';
+            clientsToRender.forEach(c => {
+                const numTickets = c.tickets.length;
+                html += `
+                    <div onclick="openClientModal('${c.name}')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition cursor-pointer select-none">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-50 text-blue-600 w-11 h-11 rounded-full flex items-center justify-center font-black text-lg border border-blue-100 uppercase">${c.name.charAt(0)}</div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-sm leading-tight">${c.name}</h3>
+                                <p class="text-[11px] text-gray-500 font-medium mt-0.5">${numTickets} ${numTickets === 1 ? 'reparación' : 'reparaciones'}</p>
+                            </div>
+                        </div>
+                        <i class="ph ph-caret-right text-gray-400 text-xl"></i>
+                    </div>`;
+            });
+            list.innerHTML = html || '<div class="text-center py-12 text-gray-400"><i class="ph-fill ph-users text-5xl mb-2 text-gray-200"></i><p class="text-sm font-medium">Directorio vacío</p></div>';
+        }
+
+        window.openClientModal = (clientName) => {
+            const clientData = allClients.find(c => c.name === clientName); if (!clientData) return;
+            document.getElementById('cm-nombre').innerText = clientData.name;
+            let historyHtml = '';
+            const sortedTickets = clientData.tickets.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+            sortedTickets.forEach(t => {
+                const isEntregado = t.status === 'entregado';
+                const fIngreso = new Date(t.createdAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'});
+                let fFin = 'En taller'; if (isEntregado) { fFin = t.deliveredAt ? new Date(t.deliveredAt).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'2-digit'}) : 'Entregado'; }
+                
+                const statusBadge = isEntregado ? `<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border border-green-200">Entregado</span>` : `<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border border-blue-200">En Taller</span>`;
+                    
+                historyHtml += `
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative">
+                        <div class="flex justify-between items-start mb-2">
+                            <div><span class="font-bold text-gray-800 block text-sm">${t.tipo} ${t.marca} ${t.modelo}</span><span class="text-xs text-gray-500 font-medium flex items-center gap-1 mt-1"><i class="ph-fill ph-warning-circle text-red-400"></i> ${t.problema}</span></div>
+                            ${statusBadge}
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] text-gray-400 mt-3 pt-2 border-t border-gray-50 font-bold uppercase tracking-wider">
+                            <span class="flex items-center gap-1"><i class="ph ph-calendar-plus text-sm"></i> ${fIngreso}</span>
+                            <span class="flex items-center gap-1">${isEntregado ? `<i class="ph ph-calendar-check text-sm text-green-500"></i> ${fFin}` : ''}</span>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById('cm-history-list').innerHTML = historyHtml;
+            const m = document.getElementById('clientModal'); const c = document.getElementById('clientModalContent');
+            m.classList.remove('hidden'); setTimeout(() => { m.classList.remove('opacity-0'); c.classList.remove('translate-y-full'); }, 10);
+        }
+        
+        window.closeClientModal = () => {
+            const m = document.getElementById('clientModal'); const c = document.getElementById('clientModalContent');
+            m.classList.add('opacity-0'); c.classList.add('translate-y-full'); setTimeout(() => m.classList.add('hidden'), 300);
+        }
+
         populateSummarySelectors();
     </script>
 </body>
