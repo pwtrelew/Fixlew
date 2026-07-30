@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#2563EB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="ico-192.png">
     
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://www.gstatic.com">
@@ -71,9 +71,14 @@
                 <i class="ph ph-spinner animate-spin"></i> Conectando...
             </p>
         </div>
-        <button class="w-10 h-10 rounded-full bg-blue-700/50 flex items-center justify-center active:bg-blue-800 transition">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Ccircle cx='128' cy='128' r='96' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Ccircle cx='128' cy='120' r='40' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M63.8,199.4a72,72,0,0,1,128.4,0' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E" class="w-6 h-6 opacity-80">
-        </button>
+        <div class="flex items-center gap-3">
+            <button id="btn-install-pwa" onclick="installPWA()" class="hidden w-9 h-9 rounded-full bg-green-500 flex items-center justify-center active:bg-green-600 transition shadow-md border border-green-400">
+                <i class="ph-bold ph-download-simple text-white text-lg"></i>
+            </button>
+            <button class="w-10 h-10 rounded-full bg-blue-700/50 flex items-center justify-center active:bg-blue-800 transition">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='none'/%3E%3Ccircle cx='128' cy='128' r='96' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Ccircle cx='128' cy='120' r='40' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3Cpath d='M63.8,199.4a72,72,0,0,1,128.4,0' fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='16'/%3E%3C/svg%3E" class="w-6 h-6 opacity-80">
+            </button>
+        </div>
     </header>
 
     <!-- mt-[64px] empuja el contenido debajo del header, mb-[90px] deja espacio para que nada se esconda tras el menu -->
@@ -940,6 +945,37 @@
                 });
             });
         }
+
+        // Lógica de Instalación PWA (Botón Manual)
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Previene que Chrome muestre el cartelito automático abajo
+            e.preventDefault();
+            // Guarda el evento para dispararlo cuando el usuario haga clic en el botón
+            deferredPrompt = e;
+            // Muestra nuestro botón verde de descarga en el header
+            document.getElementById('btn-install-pwa').classList.remove('hidden');
+        });
+
+        window.installPWA = async () => {
+            if (deferredPrompt) {
+                // Muestra el popup nativo del sistema operativo para instalar
+                deferredPrompt.prompt();
+                // Espera a que el usuario acepte o rechace
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('btn-install-pwa').classList.add('hidden');
+                }
+                deferredPrompt = null; // Se limpia porque solo se puede usar una vez
+            }
+        };
+
+        window.addEventListener('appinstalled', () => {
+            // Si se instala por otra vía, ocultar el botón
+            document.getElementById('btn-install-pwa').classList.add('hidden');
+            showToast("Aplicación instalada con éxito", "success");
+            deferredPrompt = null;
+        });
     </script>
 </body>
 </html>
